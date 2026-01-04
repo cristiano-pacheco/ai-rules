@@ -6,9 +6,9 @@ Generate Go UseCases for the Application Layer, following the established patter
 ## Location & Naming
 
 - **Directory**: `internal/modules/<module_name>/usecase` (e.g., `internal/modules/identity/usecase`)
-- **Filename**: Must end with `_usecase.go` (e.g., `auth_login_usecase.go`)
+- **Filename**: Must end with `_usecase.go` (e.g., `auth_login_usecase.go`), with the pattern [noun]_[verb]_usecase.go
 - **Package**: `package usecase`
-- **Naming Convention**: Use the pattern `[Verb][Noun]UseCase` (e.g., `CreateUserUseCase`, `AuthLoginUseCase`, `GetAuctionUseCase`).
+- **Naming Convention**: Use the pattern `[Noun][Verb]UseCase` (e.g., `UserCreateUseCase`, `AuthLoginUseCase`).
 
 ## Pattern
 
