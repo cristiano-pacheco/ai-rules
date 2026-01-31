@@ -12,14 +12,14 @@
 
     ## Template and Inputs
 
-    - Tech Spec Template: `templates/techspec-template.md`
-    - Required PRD: `tasks/prd-[feature-name]/prd.md`
-    - Output Document: `tasks/prd-[feature-name]/techspec.md`
+    - Tech Spec Template: `./ai/templates/techspec-template.md`
+    - Required PRD: `./ai/tasks/prd-[feature-name]/prd.md`
+    - Output Document: `./ai/tasks/prd-[feature-name]/techspec.md`
 
     ## Prerequisites
 
-    - Review project standards in `@.cursor/rules`
-    - Confirm that the PRD exists at `tasks/prd-[feature-name]/prd.md`
+    - Review project standards in `./ai/rules`
+    - Confirm that the PRD exists at `./ai/tasks/prd-[feature-name]/prd.md`
 
     ## Workflow
 
@@ -43,17 +43,17 @@
     - Testing focus
 
     ### 4. Standards Compliance Mapping (Mandatory)
-    - Map decisions to `docs/rules`
+    - Map decisions to `./ai/rules`
     - Highlight deviations with justification and compliant alternatives
 
     ### 5. Generate Tech Spec (Mandatory)
-    - Use `templates/techspec-template.md` as the exact structure
+    - Use `./ai/templates/techspec-template.md` as the exact structure
     - Provide: architecture overview, component design, interfaces, models, endpoints, integration points, impact analysis, testing strategy, observability
     - Keep it under ~2,000 words
     - Avoid repeating functional requirements from the PRD; focus on implementation details
 
     ### 6. Save Tech Spec (Mandatory)
-    - Save as: `tasks/prd-[feature-name]/techspec.md`
+    - Save as: `./ai/tasks/prd-[feature-name]/techspec.md`
     - Confirm write operation and file path
 
     ## Core Principles

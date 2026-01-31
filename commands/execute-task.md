@@ -4,10 +4,10 @@ You are an AI assistant responsible for managing a software development project.
 
 ## File Locations
 
-* PRD: `./tasks/prd-[feature-name]/prd.md`
-* Tech Spec: `./tasks/prd-[feature-name]/techspec.md`
-* Tasks: `./tasks/prd-[feature-name]/tasks.md`
-* Project Rules: `./docs/rules`
+* PRD: `./ai/tasks/prd-[feature-name]/prd.md`
+* Tech Spec: `./ai/tasks/prd-[feature-name]/techspec.md`
+* Tasks: `./ai/tasks/prd-[feature-name]/tasks.md`
+* Project Rules: `./ai/rules`
 
 ## Steps to Execute
 

@@ -11,9 +11,9 @@
 
     ## Template Reference
 
-    - Source template: `./templates/prd-template.md`
+    - Source template: `./ai/templates/prd-template.md`
     - Final file name: `prd.md`
-    - Final directory: `./tasks/prd-[feature-name]/` (name in kebab-case)
+    - Final directory: `./ai/tasks/prd-[feature-name]/` (name in kebab-case)
 
     ## Workflow
 
@@ -34,14 +34,14 @@
     - Assumptions and dependencies
 
     ### 3. Draft the PRD (Mandatory)
-    - Use the `templates/prd-template.md` template
+    - Use the `./ai/templates/prd-template.md` template
     - Focus on WHAT and WHY, not HOW
     - Include numbered functional requirements
     - Keep the main document to a maximum of 1,000 words
 
     ### 4. Create Directory and Save (Mandatory)
-    - Create the directory: `./tasks/prd-[feature-name]/`
-    - Save the PRD to: `./tasks/prd-[feature-name]/prd.md`
+    - Create the directory: `./ai/tasks/prd-[feature-name]/`
+    - Save the PRD to: `./ai/tasks/prd-[feature-name]/prd.md`
 
     ### 5. Report Results
     - Provide the final file path
@@ -69,7 +69,7 @@
     - [ ] Detailed plan created
     - [ ] PRD generated using the template
     - [ ] Numbered functional requirements included
-    - [ ] File saved to `./tasks/prd-[feature-name]/prd.md`
+    - [ ] File saved to `./ai/tasks/prd-[feature-name]/prd.md`
     - [ ] Final path provided
 
     <critical>DO NOT GENERATE THE PRD BEFORE ASKING CLARIFYING QUESTIONS</critical>
