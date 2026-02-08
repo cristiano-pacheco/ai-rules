@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-[Provide a brief technical overview of the solution approach. Summarize the main architectural decisions and the implementation strategy in 1–2 paragraphs.]
+[Provide a brief technical overview of the solution approach. Summarize the key architectural decisions and implementation strategy in 1–2 paragraphs.]
 
 ## System Architecture
 
@@ -10,7 +10,7 @@
 
 [Brief description of the main components and their responsibilities:
 
-* Component names and primary functions
+* Component names and primary functions **Be sure to list every new or modified component**
 * Key relationships between components
 * High-level data flow overview]
 
@@ -18,12 +18,12 @@
 
 ### Core Interfaces
 
-[Define the main service interfaces (≤20 lines per example):
+[Define key service interfaces (≤20 lines per example):
 
 ```go
 // Example interface definition
 type ServiceName interface {
-    MethodName(ctx context.Context, input Type) (output Type, error)
+    MethodName(ctx context.Context, input Type) (Type, error)
 }
 ```
 
@@ -51,7 +51,7 @@ type ServiceName interface {
 
 * External services or APIs
 * Authentication requirements
-* Error-handling approach]
+* Error handling approach]
 
 ## Testing Approach
 
@@ -59,7 +59,7 @@ type ServiceName interface {
 
 [Describe the unit testing strategy:
 
-* Main components to be tested
+* Core components to test
 * Mocking requirements (external services only)
 * Critical test scenarios]
 
@@ -69,6 +69,12 @@ type ServiceName interface {
 
 * Components to be tested together
 * Test data requirements]
+
+### End-to-End Tests
+
+[If necessary, describe E2E tests:
+
+* Test the frontend together with the backend **using Playwright**]
 
 ## Development Sequencing
 
@@ -102,7 +108,7 @@ type ServiceName interface {
 
 [Document important technical decisions:
 
-* Chosen approach and rationale
+* Chosen approach and justification
 * Trade-offs considered
 * Rejected alternatives and why]
 
@@ -112,12 +118,12 @@ type ServiceName interface {
 
 * Potential challenges
 * Mitigation approaches
-* Areas requiring further research]
+* Areas requiring research]
 
 ### Standards Compliance
 
-[Research the rules in the `docs/rules` folder that apply to this tech spec and list them below:]
+[Research the rules in the `ai/rules` folder that apply to this tech spec and list them below:]
 
-### Relevant Files
+### Relevant and Dependent Files
 
-[List relevant files here]
+[List relevant and dependent files here]
