@@ -1,6 +1,6 @@
 ---
 name: go-create-cache
-description: Generate Go cache implementations following go conventions (Fx DI, Redis-backed, interface-first design). Use when creating cache layers in internal/modules/<module>/cache/ - user state caching, session caching, rate limiting data, temporary data storage, or any domain cache that uses Redis for fast data access with TTL support.
+description: Generate Go cache implementations following GO modular architechture conventions. Use when creating cache layers in internal/modules/<module>/cache/ - user state caching, session caching, rate limiting data, temporary data storage, or any domain cache that uses Redis for fast data access with TTL support.
 ---
 
 # Go Create Cache

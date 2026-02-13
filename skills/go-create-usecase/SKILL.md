@@ -1,6 +1,6 @@
 ---
 name: go-create-usecase
-description: Generate Go use cases following go conventions (Fx DI, ports/usecase architecture). Use for any business logic operation in internal/modules/<module>/usecase/ - entity operations (create, update, list, delete), infrastructure operations (upload file, send notification), or any domain action requiring metrics, tracing, and validation.
+description: Generate Go use cases following GO modular architechture conventions (Fx DI, ports/usecase architecture). Use for any business logic operation in internal/modules/<module>/usecase/ - entity operations (create, update, list, delete), infrastructure operations (upload file, send notification), or any domain action requiring metrics, tracing, and validation.
 ---
 
 # Go Use Case Creator
