@@ -702,8 +702,9 @@ fx.Provide(
 8. **Missing keys**: Return zero value + nil error, not an error (use `errors.Is(err, redisClient.Nil)`)
 9. **Context**: Use `context.Background()` or accept `context.Context` parameter
 10. **No comments**: Do not add redundant comments above methods
-11. **Redis client type**: Use `redis.UniversalClient` interface
-12. **No TTL parameters**: TTL is internal to cache, never exposed in interface methods
+11. **Add detailed comment on interfaces**: Provide comprehensive comments on the port interfaces to describe their purpose and usage
+12. **Redis client type**: Use `redis.UniversalClient` interface
+13. **No TTL parameters**: TTL is internal to cache, never exposed in interface methods
 
 ## Workflow
 

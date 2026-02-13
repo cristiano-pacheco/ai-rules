@@ -199,8 +199,9 @@ Services depend on interfaces only. Common dependencies:
 5. **Constructor**: MUST return pointer `*XxxService`
 6. **Tracing**: Every I/O method MUST use `trace.Span` with `defer span.End()`
 7. **Context**: Methods performing I/O accept `context.Context` as first parameter
-8. **No comments**: Do not add redundant comments above methods
-9.  **Dependencies**: Always depend on port interfaces, never concrete implementations
+8. **No comments on implementations**: Do not add redundant comments above methods in the implementations
+9. **Add detailed comment on interfaces**: Provide comprehensive comments on the port interfaces to describe their purpose and usage
+10. **Dependencies**: Always depend on port interfaces, never concrete implementations
 
 ## Workflow
 

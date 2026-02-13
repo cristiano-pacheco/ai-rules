@@ -269,6 +269,7 @@ fx.Provide(
 9. **Transactions**: Use `tx := r.DB.Begin()`, rollback on error, commit at end
 10. **No comments**: Do not add redundant comments above methods
 11. **Validation**: Run `make lint` and `make nilaway` after generation
+12. **Add detailed comment on interfaces**: Provide comprehensive comments on the port interfaces to describe their purpose and usage
 
 ## Workflow
 
