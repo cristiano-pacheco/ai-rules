@@ -243,7 +243,7 @@ func TestSomeFunction(t *testing.T) {
 
 ## Test Structure Requirements
 
-### Arrange-Act-Assert Pattern
+### (CRITICAL) Arrange-Act-Assert Pattern 
 
 Every test must follow AAA pattern with explicit comments:
 
