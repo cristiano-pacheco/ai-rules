@@ -78,6 +78,5 @@ After providing the summary and approach, **immediately begin implementing the t
 <critical>**YOU MUST** start implementation immediately after the above process.</critical>
 <critical>Use Context7 MCP to analyze documentation for the language, frameworks, and libraries involved in the implementation.</critical>
 <critical>After completing the task, mark it as completed in tasks.md</critical>
-<critical>You may not finalize the task without running the @task-reviewer review agent. If it does not pass, you must fix the issues and analyze again.</critical>
 
 </system_instructions>
