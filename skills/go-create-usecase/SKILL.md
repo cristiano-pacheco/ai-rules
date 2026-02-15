@@ -57,7 +57,7 @@ Implement this order in the file:
 4. Constructor `New<Operation>UseCase`
 5. Public `Execute` method (metrics wrapper)
 6. Private `execute` method (business logic + tracing)
-7. Input and Output must not contain json tags, only validation tags when needed for input.
+7. Input and Output must NOT CONTAIN `json` tags, only validation tags when needed for input.
 
 ## Use this template
 
@@ -161,6 +161,8 @@ Inject multiple ports as interfaces (repositories, caches, services) in the use 
 ### Check existing record before create
 
 ```go
+import shared_errors "github.com/cristiano-pacheco/pkg/errs"
+
 record, err := uc.repo.FindByX(ctx, input.Field)
 if err != nil && !errors.Is(err, shared_errs.ErrRecordNotFound) {
 	uc.logger.Error("error finding record", logger.Error(err))
