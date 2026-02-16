@@ -3,6 +3,21 @@
 ## Description
 Generate and refactor Go code using this project modular architecture (`internal/modules/<module>`) with Fx DI, ports/usecase/repository boundaries, Chi HTTP adapters, typed domain errors, tracing, and use case metrics.
 
+## Specialized Skills Map (`go-*`)
+
+- `go-create-cache`: Redis cache adapters in `internal/modules/<module>/cache` with `ports` contracts.
+- `go-create-chi-handler`: Chi handlers in `internal/modules/<module>/http/chi/handler`.
+- `go-create-chi-router`: Chi routers in `internal/modules/<module>/http/chi/router`.
+- `go-create-enum`: String-based enums in `internal/modules/<module>/enum`.
+- `go-create-error`: Typed module errors in `internal/modules/<module>/errs/errs.go`.
+- `go-create-gorm-model`: GORM persistence models in `internal/modules/<module>/model`.
+- `go-create-repository`: Repository ports + implementations in `internal/modules/<module>/repository`.
+- `go-create-service`: Reusable domain services in `internal/modules/<module>/service`.
+- `go-create-usecase`: Business operations in `internal/modules/<module>/usecase`.
+- `go-create-validator`: Validation ports + implementations in `internal/modules/<module>/validator`.
+- `go-integration-tests`: Integration tests in `test/integration/...` with real infrastructure.
+- `go-unit-tests`: Unit tests with testify suites/subtests and mocks.
+
 ## Module Layout
 
 Use this folder shape for each module:
@@ -10,6 +25,7 @@ Use this folder shape for each module:
 ```text
 internal/modules/<module>/
 ├── cache/
+├── dto/
 ├── enum/
 ├── errs/
 ├── fx.go
@@ -29,7 +45,7 @@ internal/modules/<module>/
 ## Architecture Rules
 
 ### 1. Layer Boundaries
-- Keep business rules in `usecase` only.
+- Keep business rules in `usecase` or in `validators` only.
 - Keep handlers thin (decode request, call use case, map response).
 - Keep repositories focused on persistence only (no business logic).
 - Keep transport DTOs in `http/dto`; do not expose DB models directly in handlers.
@@ -43,6 +59,8 @@ internal/modules/<module>/
 - `handler` depends on use case structs.
 - `router` depends on handlers and only registers routes.
 - Shared infrastructure comes from `internal/shared` (config, database, metrics).
+- Contracts in `ports` can use module DTO structs from `internal/modules/<module>/dto` for method input/output.
+- `ports` must contain only interfaces; shared contract structs belong in `dto`.
 
 ### 3. Fx Wiring Pattern (`fx.go`)
 - Define one `Module = fx.Module("<module>", fx.Provide(...))` per module.
@@ -87,34 +105,26 @@ internal/modules/<module>/
   6. Delegate errors to shared error handler
 - Router implements `Setup(server *chi.Server)` and registers versioned routes (e.g., `/api/v1/...`).
 
-### 7. Domain Types
-- `errs`: define typed module errors via `bricks/pkg/errs.New(code, message, status, details)`.
-- `enum`: use string-based enums with constants, validation map, constructor validation, and `String()`.
-- `model`: keep persistence structs and `TableName()` mapping in `model` package.
+### 7. Error Pattern
+- Specialized skill: know more in `go-create-error`.
+- Place module errors in `internal/modules/<module>/errs/errs.go`.
+- Define typed errors using `bricks/pkg/errs.New(code, message, status, details)`.
+- Keep codes unique per module (`<MODULE>_<NN>` pattern).
+- Use typed module errors from use cases, validators, and adapters instead of raw `errors.New(...)`.
 
-### 8. Service Pattern
-- Specialized skill: know more in `go-create-service`.
-- Place contracts in `ports/<name>_service.go` and implementation in `service/<name>_service.go`.
-- Name both interface and implementation `XxxService` (package differentiates them).
-- Add compile-time assertion in implementation:
-  - `var _ ports.XxxService = (*XxxService)(nil)`
-- Constructor must be `NewXxxService(...) *XxxService`.
-- Single-action services should expose `Execute(ctx, input)`.
-- Services with grouped responsibilities may expose descriptive methods.
-- Methods performing I/O must accept `context.Context` first and use `trace.Span`.
-- Services depend on ports (repositories/services/caches), never concrete adapters.
+Example custom error (from current codebase pattern):
 
-### 9. Cache Pattern
-- Specialized skill: know more in `go-create-cache`.
-- Place contracts in `ports/<name>_cache.go` and implementation in `cache/<name>_cache.go`.
-- Cache structs are Redis-backed adapters and must satisfy `ports.XxxCache`.
-- Define package-level key/TTL constants (for example `cacheKeyPrefix`, `cacheTTL` or min/max TTL range).
-- Keep key generation in a private helper like `buildKey(...)`.
-- Distinguish missing key from operational failure (`redis.Nil` means cache miss, not error).
-- Use `Set/Get/Delete`-style API unless domain requires another shape.
-- Apply randomized TTL ranges when high write bursts could cause synchronized expiration.
+```go
+// internal/modules/export/errs/errs.go
+var ErrSecretRequired = errs.New(
+	"EXPORT_03",
+	"secret is required",
+	http.StatusBadRequest,
+	nil,
+)
+```
 
-### 10. Enum Pattern
+### 8. Enum Pattern
 - Specialized skill: know more in `go-create-enum`.
 - Place enums in `enum/<name>_enum.go`.
 - Include:
@@ -125,6 +135,63 @@ internal/modules/<module>/
   5. `String()` method
   6. Private validator (`validate<Name>`)
 - Return typed module error from `errs` package on invalid enum values.
+
+### 9. Model Pattern
+- Specialized skill: know more in `go-create-gorm-model`.
+- Keep persistence structs in `internal/modules/<module>/model`.
+- Name structs `<Entity>Model` and keep file names as `*_model.go`.
+- Add `TableName()` mapping for exact SQL table names.
+- Use `database/sql` nullable types when DB columns are nullable.
+- Keep models persistence-only; do not add business logic or transport DTO concerns.
+
+### 10. Service Pattern
+- Specialized skill: know more in `go-create-service`.
+- Place contracts in `ports/<name>_service.go` and implementation in `service/<name>_service.go`.
+- Place shared service input/output structs in `dto/<name>_dto.go`, and use them in both the `ports` interface and `service` implementation.
+- Example: define `TemplateRendererInput` and `TemplateRendererOutput` in `internal/modules/export/dto`, then reference them in `ports.TemplateRendererService` and `service.TemplateRendererService`.
+- Name both interface and implementation `XxxService` (package differentiates them).
+- Add compile-time assertion in implementation:
+  - `var _ ports.XxxService = (*XxxService)(nil)`
+- Constructor must be `NewXxxService(...) *XxxService`.
+- Single-action services should expose `Execute(ctx, input)`.
+- Services with grouped responsibilities may expose descriptive methods.
+- Methods performing I/O must accept `context.Context` first and use `trace.Span`.
+- Services depend on ports (repositories/services/caches), never concrete adapters.
+
+### 11. Cache Pattern
+- Specialized skill: know more in `go-create-cache`.
+- Place contracts in `ports/<name>_cache.go` and implementation in `cache/<name>_cache.go`.
+- Cache structs are Redis-backed adapters and must satisfy `ports.XxxCache`.
+- Define package-level key/TTL constants (for example `cacheKeyPrefix`, `cacheTTL` or min/max TTL range).
+- Keep key generation in a private helper like `buildKey(...)`.
+- Distinguish missing key from operational failure (`redis.Nil` means cache miss, not error).
+- Use `Set/Get/Delete`-style API unless domain requires another shape.
+- Apply randomized TTL ranges when high write bursts could cause synchronized expiration.
+
+### 12. Validator Pattern
+- Specialized skill: know more in `go-create-validator`.
+- Split validator by contract and implementation:
+  - `ports/<name>_validator.go`
+  - `validator/<name>_validator.go`
+- Keep validators stateless when possible.
+- Use compile-time assertions:
+  - `var _ ports.XxxValidator = (*XxxValidator)(nil)`
+- Return typed module errors from `internal/modules/<module>/errs`.
+- If validation performs I/O (e.g., DB lookup), accept `context.Context` first.
+
+### 13. Testing Patterns
+- Specialized skills:
+  - Unit tests: know more in `go-unit-tests`.
+  - Integration tests: know more in `go-integration-tests`.
+- Unit tests:
+  - Use `testify/suite` for structs with dependencies.
+  - Use table/subtests for standalone functions.
+  - Follow Arrange / Act / Assert sections.
+- Integration tests:
+  - Use `//go:build integration`.
+  - Place files under `test/integration/...` mirroring `internal/...`.
+  - Use real infrastructure dependencies (DB/Redis) and mock only external services.
+  - Truncate/reset state between tests.
 
 ## Reference Pattern From This Codebase
 
