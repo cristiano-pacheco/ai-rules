@@ -96,6 +96,10 @@ func (s *DoSomethingService) Execute(ctx context.Context, input dto.DoSomethingI
 	defer span.End()
 
 	// Business logic here
+	// if err != nil {
+	// 	s.logger.Error("DoSomethingService.Execute failed", logger.Error(err))
+	// 	return err
+	// }
 
 	return nil
 }
@@ -190,6 +194,19 @@ Services depend on interfaces only. Common dependencies:
 - `ports.XxxRepository` — data access
 - `ports.XxxCache` — caching layer
 
+## Error Logging Rule
+
+- Always use the Bricks logger package: `github.com/cristiano-pacheco/bricks/pkg/logger`
+- Every time a service method returns an error, log it immediately before returning
+- Preferred pattern:
+
+```go
+if err != nil {
+	s.logger.Error("ServiceName.MethodName failed", logger.Error(err))
+	return err
+}
+```
+
 ## Critical Rules
 
 1. **Three files**: DTOs in `dto/`, port interface in `ports/`, implementation in `service/`
@@ -202,6 +219,7 @@ Services depend on interfaces only. Common dependencies:
 8. **No comments on implementations**: Do not add redundant comments above methods in the implementations
 9. **Add detailed comment on interfaces**: Provide comprehensive comments on the port interfaces to describe their purpose and usage
 10. **Dependencies**: Always depend on port interfaces, never concrete implementations
+11. **Error logging**: Every returned error must be logged first using Bricks logger (`s.logger.Error(..., logger.Error(err))`)
 
 ## Workflow
 

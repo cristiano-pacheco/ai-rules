@@ -110,6 +110,7 @@ func (uc *<Operation>UseCase) Execute(ctx context.Context, input <Operation>Inpu
 
 	uc.useCaseMetrics.ObserveDuration("<operation>", time.Since(start))
 	if err != nil {
+		uc.logger.Error("<Operation>UseCase.Execute failed", logger.Error(err))
 		uc.useCaseMetrics.IncError("<operation>")
 		return output, err
 	}
@@ -124,9 +125,10 @@ func (uc *<Operation>UseCase) execute(ctx context.Context, input <Operation>Inpu
 
 	output := <Operation>Output{}
 
-	if err := uc.validator.Validate(input); err != nil {
-		return output, err
-	}
+if err := uc.validator.Validate(input); err != nil {
+	uc.logger.Error("error validating input", logger.Error(err))
+	return output, err
+}
 
 	// Add business orchestration here
 	// - read/write via repositories
@@ -178,6 +180,7 @@ if record.ID != 0 {
 ```go
 enumVal, err := enum.NewTypeEnum(input.Type)
 if err != nil {
+	uc.logger.Error("error converting enum", logger.Error(err))
 	return output, err
 }
 model.Type = enumVal.String()
@@ -218,6 +221,8 @@ If another layer depends on an interface abstraction, annotate accordingly in mo
 4. Start a span in private `execute` and always `defer span.End()`
 5. Keep naming consistent across file, struct, metric, and span
 6. Return typed output DTOs; do not leak persistence models directly
+7. Use the Bricks logger (`github.com/cristiano-pacheco/bricks/pkg/logger`) as a dependency in use cases
+8. Every time an error is returned, log it immediately before returning (`uc.logger.Error(..., logger.Error(err))`)
 
 ## Final checklist
 
