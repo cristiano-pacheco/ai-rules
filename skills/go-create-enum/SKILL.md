@@ -72,6 +72,8 @@ func validateContactType(contactType string) error {
    - Add error to `internal/modules/<module>/errs/errs.go`
    - Format: `ErrInvalid<EnumName> = errors.New("invalid <enum_name>")`
    - Example: `ErrInvalidContactType = errors.New("invalid contact type")`
+   - Add translation entry for the new error in `locales/en.json`
+   - If additional locale files exist (e.g., `locales/pt_BR.json`), add the same translation key there too
 
 3. **Generate enum file**:
    - Filename: `<snake_case_enum_name>_enum.go`
@@ -92,6 +94,8 @@ func validateContactType(contactType string) error {
 ## Implementation Checklist
 
 - [ ] Add `ErrInvalid<EnumName>` to `internal/modules/<module>/errs/errors.go`
+- [ ] Add translation for the new error in `locales/en.json`
+- [ ] Add the same translation key in every other existing locale file (e.g., `locales/pt_BR.json`)
 - [ ] Create `internal/modules/<module>/enum/<name>_enum.go`
 - [ ] Define all constant values
 - [ ] Create validation map with all values
@@ -115,3 +119,7 @@ fmt.Println(contactType.String()) // "email"
 // Use constants directly when value is known at compile time
 const defaultType = enum.ContactTypeEmail
 ```
+
+## Critical Rules
+
+- Every new custom error created for enum validation must include locale entries in `locales/en.json` and all other existing locale files

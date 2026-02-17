@@ -202,6 +202,7 @@ const (
 ## Error Handling
 
 Validators MUST return typed domain errors from the module's `errs` package.
+When adding new custom errors, translations are mandatory in locale files.
 
 ```go
 // In internal/modules/<module>/errs/errs.go
@@ -213,6 +214,10 @@ var (
 	ErrPasswordMissingSpecial   = errors.New("password must contain at least one special character")
 )
 ```
+
+For every new custom error added to `internal/modules/<module>/errs/errs.go`:
+- Add the translation key to `locales/en.json`
+- Add the same translation key to every other existing locale file (e.g., `locales/pt_BR.json`)
 
 ## Context Usage
 
@@ -309,10 +314,11 @@ func TestPasswordValidator_TooShort_ReturnsError(t *testing.T) {
 5. **Stateless by default**: Only add dependencies when validation requires external data
 6. **Context when needed**: Accept `context.Context` only for validators performing I/O
 7. **Typed errors**: Return domain errors from module's `errs` package
-8. **Constants**: Define validation rules as package-level constants
-9. **No comments on implementations**: Do not add redundant comments above methods in the implementations
-10. **Add detailed comment on interfaces**: Provide comprehensive comments on the port interfaces to describe their purpose and validation rules
-11. **Comprehensive tests**: Test valid cases and all invalid conditions
+8. **Error translations**: Every new custom error must have entries in `locales/en.json` and all other existing locale files
+9. **Constants**: Define validation rules as package-level constants
+10. **No comments on implementations**: Do not add redundant comments above methods in the implementations
+11. **Add detailed comment on interfaces**: Provide comprehensive comments on the port interfaces to describe their purpose and validation rules
+12. **Comprehensive tests**: Test valid cases and all invalid conditions
 
 ## Workflow
 
@@ -320,8 +326,9 @@ func TestPasswordValidator_TooShort_ReturnsError(t *testing.T) {
 2. Create validator implementation in `validator/<name>_validator.go`
 3. Define validation constants
 4. Add typed errors to module's `errs/errs.go` if needed
-5. Create comprehensive unit tests in `validator/<name>_validator_test.go`
-6. Add Fx wiring to module's `fx.go`
-7. Run `make test` to verify tests pass
-8. Run `make lint` to verify code quality
-9. Run `make nilaway` for static analysis
+5. Add translations for each new custom error in `locales/en.json` and all other existing locale files
+6. Create comprehensive unit tests in `validator/<name>_validator_test.go`
+7. Add Fx wiring to module's `fx.go`
+8. Run `make test` to verify tests pass
+9. Run `make lint` to verify code quality
+10. Run `make nilaway` for static analysis

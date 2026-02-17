@@ -67,6 +67,12 @@ var (
    - Ensure new/updated usecases, validators, handlers, or enum constructors return the new typed error
    - Do not return raw `errors.New(...)` from business flows when a typed module error exists
 
+5. **Update translations (mandatory)**:
+   - Every new custom error must add a translation entry in `locales/en.json`
+   - If additional locale files exist (for example `locales/pt_BR.json`), add the same key there too
+   - Keep translation keys and structure consistent across all locale files
+   - Do not merge a new custom error without the corresponding locale updates
+
 ## Naming Conventions
 
 - **Variable**: `Err` + clear domain phrase in PascalCase
@@ -93,6 +99,8 @@ var (
 - [ ] Match existing ordering/grouping style
 - [ ] Ensure message and status align with domain behavior
 - [ ] Replace raw error returns in calling code with typed `errs.Err...` where applicable
+- [ ] Add translation for the new error in `locales/en.json`
+- [ ] Add the same translation key in every other existing locale file (e.g., `locales/pt_BR.json`)
 
 ## Usage Pattern
 
@@ -112,3 +120,4 @@ if user == nil {
 - Do not duplicate codes within the same module
 - Do not return persistence or infrastructure-specific raw errors to transport when a typed domain error exists
 - Keep error messages stable once exposed, unless migration/compatibility impact is accepted
+- Every new custom error requires locale entries in `locales/en.json` and all other existing locale files
