@@ -1,6 +1,6 @@
 ---
 name: go-create-usecase
-description: Generate Go use cases for modular architecture with Fx dependency injection, ports-based dependencies, OpenTelemetry tracing, input validation, and use-case metrics. Use when implementing business actions in internal/modules/<module>/usecase/ such as create, update, list, delete, status transitions, uploads, notifications, or any domain operation that orchestrates repositories/services.
+description: Generate Go use cases for modular architecture using ports-based dependencies and decorator-based observability. Use when implementing business actions in internal/modules/<module>/usecase/ such as create, update, list, delete, status transitions, uploads, notifications, or any domain operation that orchestrates repositories/services.
 ---
 
 # Go Create UseCase
@@ -15,8 +15,7 @@ Create one file per operation in:
 Use:
 - package: `usecase`
 - struct name: `<Operation>UseCase`
-- metric name: `<operation>` (lowercase snake case)
-- span name: `"<Operation>UseCase.Execute"`
+- method name: `Execute`
 
 ## Naming (CRITICAL)
 
@@ -28,8 +27,6 @@ Rules:
 - output DTO: `<Operation>Output`
 - use case struct: `<Operation>UseCase`
 - constructor: `New<Operation>UseCase`
-- metric: `<operation>` (snake case)
-- span: `"<Operation>UseCase.Execute"`
 
 Example (`contact_create`):
 - file: `contact_create_usecase.go`
@@ -37,27 +34,35 @@ Example (`contact_create`):
 - output: `ContactCreateOutput`
 - struct: `ContactCreateUseCase`
 - constructor: `NewContactCreateUseCase`
-- metric: `contact_create`
-- span: `"ContactCreateUseCase.Execute"`
 
-Example (`contact_list`, no input):
+Example (`contact_list`, no real input):
 - file: `contact_list_usecase.go`
+- input: `ContactListInput` (empty struct)
 - output: `ContactListOutput`
 - struct: `ContactListUseCase`
 - constructor: `NewContactListUseCase`
-- metric: `contact_list`
-- span: `"ContactListUseCase.Execute"`
 
-## Follow the structure CRITICAL
+## Follow the structure (CRITICAL)
 
 Implement this order in the file:
-1. Input struct (skip when no parameters are needed)
-2. Output struct
+1. Input struct (ALWAYS present; can be empty)
+2. Output struct (ALWAYS present; can be empty)
 3. Use case struct with dependencies
 4. Constructor `New<Operation>UseCase`
-5. Public `Execute` method (metrics wrapper)
-6. Private `execute` method (business logic + tracing)
-7. Input and Output must NOT CONTAIN `json` tags, only validation tags when needed for input.
+5. Public `Execute` method (contains all business logic)
+6. Input and Output must NOT CONTAIN `json` tags, only validation tags when needed for input.
+
+## Current architecture rule
+
+Use cases contain business logic only.
+
+Do NOT include in usecases:
+- logger dependencies
+- metrics dependencies
+- tracing code
+- private `execute` method wrappers
+
+Observability and error translation are handled by `ucdecorator` in Fx wiring.
 
 ## Use this template
 
@@ -66,13 +71,9 @@ package usecase
 
 import (
 	"context"
-	"time"
 
-	"github.com/cristiano-pacheco/bricks/pkg/logger"
-	"github.com/cristiano-pacheco/bricks/pkg/otel/trace"
 	"github.com/cristiano-pacheco/bricks/pkg/validator"
-	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/ports"
-	"github.com/cristiano-pacheco/pingo/internal/shared/metrics"
+	"github.com/cristiano-pacheco/catzi/internal/modules/<module>/ports"
 )
 
 type <Operation>Input struct {
@@ -84,58 +85,31 @@ type <Operation>Output struct {
 }
 
 type <Operation>UseCase struct {
-	repo           ports.<Entity>Repository
-	validator      validator.Validator
-	logger         logger.Logger
-	useCaseMetrics metrics.UseCaseMetrics
+	repo      ports.<Entity>Repository
+	validator validator.Validator // include only if needed
 }
 
 func New<Operation>UseCase(
 	repo ports.<Entity>Repository,
 	validator validator.Validator,
-	logger logger.Logger,
-	useCaseMetrics metrics.UseCaseMetrics,
 ) *<Operation>UseCase {
 	return &<Operation>UseCase{
-		repo:           repo,
-		validator:      validator,
-		logger:         logger,
-		useCaseMetrics: useCaseMetrics,
+		repo:      repo,
+		validator: validator,
 	}
 }
 
 func (uc *<Operation>UseCase) Execute(ctx context.Context, input <Operation>Input) (<Operation>Output, error) {
-	start := time.Now()
-	output, err := uc.execute(ctx, input)
-
-	uc.useCaseMetrics.ObserveDuration("<operation>", time.Since(start))
-	if err != nil {
-		uc.logger.Error("<Operation>UseCase.Execute failed", logger.Error(err))
-		uc.useCaseMetrics.IncError("<operation>")
-		return output, err
+	if err := uc.validator.Validate(input); err != nil {
+		return <Operation>Output{}, err
 	}
-
-	uc.useCaseMetrics.IncSuccess("<operation>")
-	return output, nil
-}
-
-func (uc *<Operation>UseCase) execute(ctx context.Context, input <Operation>Input) (<Operation>Output, error) {
-	ctx, span := trace.Span(ctx, "<Operation>UseCase.Execute")
-	defer span.End()
-
-	output := <Operation>Output{}
-
-if err := uc.validator.Validate(input); err != nil {
-	uc.logger.Error("error validating input", logger.Error(err))
-	return output, err
-}
 
 	// Add business orchestration here
 	// - read/write via repositories
 	// - call domain services
 	// - map model to output DTO
 
-	return output, nil
+	return <Operation>Output{}, nil
 }
 ```
 
@@ -143,16 +117,35 @@ if err := uc.validator.Validate(input); err != nil {
 
 ### No-input use case
 
-When no parameters are needed, remove input struct and use:
+When no parameters are needed, still define an empty input:
 
 ```go
-func (uc *ContactListUseCase) Execute(ctx context.Context) (ContactListOutput, error)
-func (uc *ContactListUseCase) execute(ctx context.Context) (ContactListOutput, error)
+type ContactListInput struct{}
+```
+
+And keep the same contract:
+
+```go
+func (uc *ContactListUseCase) Execute(ctx context.Context, input ContactListInput) (ContactListOutput, error)
+```
+
+### No-output use case
+
+When no result payload is needed, define an empty output:
+
+```go
+type ContactDeleteOutput struct{}
+```
+
+And return it:
+
+```go
+return ContactDeleteOutput{}, nil
 ```
 
 ### No-validation use case
 
-When validation is not required, remove `validator.Validator` from dependencies and skip `uc.validator.Validate(...)`.
+When validation is not required, remove `validator.Validator` from dependencies and skip validation.
 
 ### Multi-dependency orchestration
 
@@ -163,15 +156,14 @@ Inject multiple ports as interfaces (repositories, caches, services) in the use 
 ### Check existing record before create
 
 ```go
-import shared_errors "github.com/cristiano-pacheco/pkg/errs"
+import brickserrors "github.com/cristiano-pacheco/pkg/errs"
 
 record, err := uc.repo.FindByX(ctx, input.Field)
-if err != nil && !errors.Is(err, shared_errs.ErrRecordNotFound) {
-	uc.logger.Error("error finding record", logger.Error(err))
+if err != nil && !errors.Is(err, brickserrors.ErrRecordNotFound) {
 	return output, err
 }
 if record.ID != 0 {
-	return output, errs.ErrAlreadyExists
+	return output, brickserrors.ErrAlreadyExists
 }
 ```
 
@@ -180,7 +172,6 @@ if record.ID != 0 {
 ```go
 enumVal, err := enum.NewTypeEnum(input.Type)
 if err != nil {
-	uc.logger.Error("error converting enum", logger.Error(err))
 	return output, err
 }
 model.Type = enumVal.String()
@@ -191,7 +182,6 @@ model.Type = enumVal.String()
 ```go
 items, err := uc.repo.FindAll(ctx)
 if err != nil {
-	uc.logger.Error("error listing records", logger.Error(err))
 	return output, err
 }
 
@@ -203,7 +193,9 @@ for i, item := range items {
 
 ## Wire with Fx
 
-Add provider wiring in `internal/modules/<module>/fx.go`:
+Register raw usecases and decorate them via `ucdecorator`.
+
+### Minimal provider example
 
 ```go
 fx.Provide(
@@ -211,27 +203,86 @@ fx.Provide(
 )
 ```
 
-If another layer depends on an interface abstraction, annotate accordingly in module wiring.
+### Decorator wiring pattern (recommended)
+
+Use a consolidated provider (`fx.In` + `fx.Out`) and wrap usecases with:
+
+```go
+ucdecorator.Wrap(factory, rawUseCase)
+```
+
+`Wrap` infers:
+- usecase name (e.g. `CategoryCreateUseCase.Execute`)
+- metric name (e.g. `category_create`)
+
+No need to pass metric/usecase name strings manually.
+
+### Full module wiring pattern (single-file, `fx.In` + `fx.Out`)
+
+Use this when the module has multiple usecases and you want less boilerplate in `fx.go`.
+
+```go
+type decorateIn struct {
+	fx.In
+
+	Factory *ucdecorator.Factory
+	Create  *usecase.<Entity>CreateUseCase
+	List    *usecase.<Entity>ListUseCase
+}
+
+type decorateOut struct {
+	fx.Out
+
+	Create ucdecorator.UseCase[usecase.<Entity>CreateInput, usecase.<Entity>CreateOutput]
+	List   ucdecorator.UseCase[usecase.<Entity>ListInput, usecase.<Entity>ListOutput]
+}
+
+func provideDecoratedUseCases(in decorateIn) decorateOut {
+	return decorateOut{
+		Create: ucdecorator.Wrap(in.Factory, in.Create),
+		List:   ucdecorator.Wrap(in.Factory, in.List),
+	}
+}
+
+var Module = fx.Module(
+	"<module>",
+	fx.Provide(
+		// repositories/services/validators
+		// raw usecases
+		usecase.New<Entity>CreateUseCase,
+		usecase.New<Entity>ListUseCase,
+
+		// decorated usecases
+		provideDecoratedUseCases,
+
+		// handlers/routers
+	),
+)
+```
+
+This keeps:
+1. Raw constructors simple
+2. Decoration centralized in one provider
+3. Handler injection strongly typed via `ucdecorator.UseCase[Input, Output]`
 
 ## Enforce rules
 
-1. Depend only on `ports.*` interfaces in use cases
-2. Keep orchestration in use case; keep persistence in repositories
-3. Wrap public `Execute` with metrics: `ObserveDuration`, `IncError`, `IncSuccess`
-4. Start a span in private `execute` and always `defer span.End()`
-5. Keep naming consistent across file, struct, metric, and span
-6. Return typed output DTOs; do not leak persistence models directly
-7. Use the Bricks logger (`github.com/cristiano-pacheco/bricks/pkg/logger`) as a dependency in use cases
-8. Every time an error is returned, log it immediately before returning (`uc.logger.Error(..., logger.Error(err))`)
+1. Depend only on `ports.*` interfaces in use cases.
+2. Keep orchestration in use case; keep persistence in repositories.
+3. Use a single public `Execute` method; do not create a private `execute` wrapper.
+4. Always define both Input and Output structs (use empty struct when needed).
+5. Keep naming consistent across file, structs, constructor, and method.
+6. Return typed output DTOs; do not leak persistence models directly.
+7. Keep observability and translation outside usecases (via decorators).
 
 ## Final checklist
 
-1. Create `internal/modules/<module>/usecase/<operation>_usecase.go`
-2. Add input/output DTOs for the operation
-3. Inject logger, metrics, and required ports
-4. Implement public metrics wrapper and private traced logic
-5. Wire provider in `internal/modules/<module>/fx.go`
-6. Create the unit tests using the go-unit-tests skill
-7. Run `make test`
-8. Run `make lint`
-9. Run `make nilaway`
+1. Create `internal/modules/<module>/usecase/<operation>_usecase.go`.
+2. Add Input/Output DTOs for the operation (including empty structs when needed).
+3. Inject required ports/services in constructor.
+4. Implement a single `Execute` with all business logic.
+5. Wire raw usecase in Fx and decorate with `ucdecorator.Wrap(factory, raw)`.
+6. Create unit tests using the `go-unit-tests` skill.
+7. Run `make test`.
+8. Run `make lint`.
+9. Run `make nilaway`.
