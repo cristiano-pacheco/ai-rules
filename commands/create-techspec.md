@@ -23,7 +23,7 @@
 
 ## Prerequisites
 
-* Review project standards in `ai/rules`
+* Review project standards in `docs/`
 * Confirm that the PRD exists at `ai/tasks/prd-[feature-name]/prd.md`
 
 ## Workflow
@@ -53,7 +53,7 @@ Ask focused questions about:
 
 ### 4. Standards Compliance Mapping (Mandatory)
 
-* Map decisions to `ai/claude/rules`
+* Map decisions to `docs/`
 * Highlight deviations with justification and compliant alternatives
 
 ### 5. Generate Tech Spec (Mandatory)

@@ -41,7 +41,7 @@ type ServiceName interface {
 
 [List API endpoints if applicable:
 
-* Method and path (e.g., `POST /api/v0/resource`)
+* Method and path (e.g., `POST /api/v1/resource`)
 * Brief description
 * Request/response format references]
 
@@ -122,7 +122,7 @@ type ServiceName interface {
 
 ### Standards Compliance
 
-[Research the rules in the `ai/rules` folder that apply to this tech spec and list them below:]
+[Research the rules in the `docs/` folder that apply to this tech spec and list them below:]
 
 ### Relevant and Dependent Files
 

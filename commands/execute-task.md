@@ -12,7 +12,7 @@ You are an **AI assistant responsible for correctly implementing tasks**. Your r
 * PRD: `ai/tasks/prd-[feature-name]/prd.md`
 * Tech Spec: `ai/tasks/prd-[feature-name]/techspec.md`
 * Tasks: `ai/tasks/prd-[feature-name]/tasks.md`
-* Project Rules: `ai/rules`
+* Project Rules: `docs/`
 
 ## Execution Steps
 
