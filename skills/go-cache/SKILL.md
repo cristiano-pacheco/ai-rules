@@ -1,9 +1,9 @@
 ---
-name: go-create-cache
+name: go-cache
 description: Generate Go cache implementations following GO modular architechture conventions. Use when creating cache layers in internal/modules/<module>/cache/ - user state caching, session caching, rate limiting data, temporary data storage, or any domain cache that uses Redis for fast data access with TTL support.
 ---
 
-# Go Create Cache
+# Go Cache
 
 Generate cache files for Go backend using Redis.
 

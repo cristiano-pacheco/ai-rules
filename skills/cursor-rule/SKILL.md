@@ -1,5 +1,5 @@
 ---
-name: creating-cursor-rules-skill
+name: cursor-rule
 description: Expert guidance for creating effective Cursor IDE rules with best practices, patterns, and examples
 ---
 

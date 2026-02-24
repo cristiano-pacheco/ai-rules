@@ -1,9 +1,9 @@
 ---
-name: go-create-repository
+name: go-repository
 description: Generate Go repository port interfaces and implementations following GO modular architechture conventions (Gorm, PingoDB, OTEL tracing, Fx DI, ports architecture). Use when creating data access layers for entities in internal/modules/<module>/ including CRUD operations (Create, FindAll, FindByID, Update, Delete), custom queries, pagination, or transactions.
 ---
 
-# Go Create Repository
+# Go Repository
 
 Generate repository port interfaces and implementations for Pingo GO modular architechture conventions.
 

@@ -1,9 +1,9 @@
 ---
-name: go-create-chi-router
+name: go-chi-router
 description: Generate Chi router implementations following GO modular architechture conventions (Chi router from bricks package, Fx DI with chi.Route interface, REST endpoints). Use when creating HTTP route registration for resources in internal/modules/<module>/http/chi/router/ including REST routes (GET, POST, PUT, DELETE) for CRUD operations, custom endpoints, versioned APIs, and route groups.
 ---
 
-# Go Create Chi Router
+# Go Chi Router
 
 Generate Chi router implementations for Go backend HTTP transport layer.
 

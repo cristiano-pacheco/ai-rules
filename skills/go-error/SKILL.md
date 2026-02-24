@@ -1,9 +1,9 @@
 ---
-name: go-create-error
+name: go-error
 description: Generate custom Go errors following GO modular architecture conventions using bricks errs.New(code, message, httpStatus, metadata). Use when creating new domain errors, extending internal/modules/<module>/errs/errs.go, or standardizing error codes/messages/statuses in identity and monitor modules.
 ---
 
-# Go Error Generator
+# Go Error
 
 Generate typed custom errors for module-level `errs` packages.
 

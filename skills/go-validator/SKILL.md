@@ -1,9 +1,9 @@
 ---
-name: go-create-validator
+name: go-validator
 description: Generate Go validator implementations following GO modular architecture conventions (interface-first design, Fx DI, stateless validation). Use when creating validation logic in internal/modules/<module>/validator/ - password validation, email validation, input sanitization, business rule validation, or any domain validation that encapsulates validation rules and returns typed errors.
 ---
 
-# Go Create Validator
+# Go Validator
 
 Generate validator files for GO modular architecture conventions.
 

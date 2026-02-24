@@ -1,9 +1,9 @@
 ---
-name: go-create-gorm-model
+name: go-gorm-model
 description: Generate Go GORM models following Pingo modular architecture conventions. Use when creating or updating persistence models in internal/modules/<module>/model/, including table mapping, nullable SQL types, timestamps, and relation fields for identity and monitor modules.
 ---
 
-# Go Create GORM Model
+# Go GORM Model
 
 Generate GORM persistence models in `internal/modules/<module>/model/`.
 

@@ -1,9 +1,9 @@
 ---
-name: go-create-usecase
+name: go-usecase
 description: Generate Go use cases for modular architecture using ports-based dependencies and decorator-based observability. Use when implementing business actions in internal/modules/<module>/usecase/ such as create, update, list, delete, status transitions, uploads, notifications, or any domain operation that orchestrates repositories/services.
 ---
 
-# Go Create UseCase
+# Go UseCase
 
 Generate a use case that depends on ports (interfaces), not concrete implementations.
 

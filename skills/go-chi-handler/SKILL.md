@@ -1,9 +1,9 @@
 ---
-name: go-create-chi-handler
+name: go-chi-handler
 description: Generate Chi HTTP handlers following GO modular architechture conventions (request/response DTOs, use case orchestration, error handling, swagger annotations, Fx DI). Use when creating HTTP endpoint handlers in internal/modules/<module>/http/chi/handler/ for REST operations (List, Create, Update, Delete, Get) that need to decode requests, call use cases, map responses, and handle errors with proper logging and tracing.
 ---
 
-# Go Create Chi Handler
+# Go Chi Handler
 
 Generate Chi HTTP handler implementations for a Go backend.
 

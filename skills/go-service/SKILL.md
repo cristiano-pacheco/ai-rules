@@ -1,9 +1,9 @@
 ---
-name: go-create-service
+name: go-service
 description: Generate Go services following GO modular architechture conventions (Fx DI, OTEL tracing, interface-first design). Use when creating reusable business services in internal/modules/<module>/service/ - email senders, token generators, hashing utilities, template compilers, cache-backed lookups, or any domain service that encapsulates a single responsibility and is consumed by use cases or other services.
 ---
 
-# Go Create Service
+# Go Service
 
 Generate service files for GO modular architechture conventions.
 
