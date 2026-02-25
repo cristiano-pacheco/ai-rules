@@ -7,265 +7,319 @@ description: Generate comprehensive Go unit tests following testify patterns and
 
 Generate comprehensive Go unit tests following testify patterns and the Arrange-Act-Assert methodology.
 
-## Planning Phase
+## Before Writing Tests
 
-Before writing tests, identify:
+Identify the following before writing any code:
 
-1. **Test Structure**: Determine if test suite (for structs with dependencies) or individual test functions (for standalone functions) should be used
-2. **Dependencies**: Identify dependencies or side effects requiring mocks or stubs
-3. **Test Cases**: Define scenarios covering happy paths, edge cases, and error conditions
-4. **Naming**: Number each test case clearly (e.g., `TestFunction_ValidInput_ReturnsExpectedResult`, `TestFunction_EmptyInput_ReturnsError`)
+1. **Pattern** — Use a test suite (Pattern 1) for structs with dependencies; use standalone functions (Pattern 2) for simple functions or value objects
+2. **Dependencies** — Which dependencies need mocks; which can use real instances
+3. **Test cases** — Happy path, error conditions, and edge cases
 
-Show the code without explanations during planning.
+## Pattern 1: Test Suite (structs with dependencies)
 
-## Implementation Patterns
+Use `suite.Suite` from testify when the system under test is a struct with injected dependencies.
 
-### Pattern 1: Test Suites for Structs with Dependencies
+**Rules:**
+- Suite struct holds `sut` (System Under Test) and mock fields
+- `SetupTest()` runs before each test — use it to initialize mocks and the sut
+- `SetupSuite()` + `TearDownSuite()` run once per suite — use only for expensive setup (e.g. generating RSA keys, creating temp files)
+- Always use `_test` suffix for the package name
+- For assertions: `s.Require().Error/NoError/ErrorIs` stops the test immediately on failure; `s.Equal/Empty/True/False` continues after failure — use `Require()` for preconditions and error checks, plain assertions for value comparisons
+- Never call `.AssertExpectations(s.T())` — mockery v2 auto-registers cleanup when you pass `s.T()` to the mock constructor, so calling it manually is redundant
 
-Use `suite.Suite` from testify for structs with dependencies.
-
-**Key Rules:**
-- Create suite struct with `sut` (System Under Test) field
-- Implement `SetupTest` method to initialize sut and dependencies
-- Use constructor (typically `NewTypeName`) to create instances
-- Always use `_test` suffix for package name
-- Use `suite` methods for assertions (e.g., `suite.Equal(v, 10)`)
-- Use `suite.Require()` for error assertions (e.g., `suite.Require().ErrorIs`, `suite.Require().Error`)
-- Never use `.AssertExpectations(s.T())`
-
-**Example:**
+**Basic suite example:**
 
 ```go
-package mypackage_test
+package service_test
 
 import (
 	"testing"
 
+	"github.com/example/project/internal/modules/identity/service"
 	"github.com/stretchr/testify/suite"
 )
 
-type MyStructTestSuite struct {
+type PasswordHasherServiceTestSuite struct {
 	suite.Suite
-	sut *mypackage.MyStruct
+	sut *service.PasswordHasherService
 }
 
-func (s *MyStructTestSuite) SetupTest() {
-	// Initialize sut and dependencies
-	s.sut = mypackage.New()
+func (s *PasswordHasherServiceTestSuite) SetupTest() {
+	s.sut = service.NewPasswordHasherService()
 }
 
-func TestMyStructSuite(t *testing.T) {
-	suite.Run(t, new(MyStructTestSuite))
+func TestPasswordHasherServiceSuite(t *testing.T) {
+	suite.Run(t, new(PasswordHasherServiceTestSuite))
 }
 
-func (s *MyStructTestSuite) TestSomeMethod() {
+func (s *PasswordHasherServiceTestSuite) TestHash_ValidPassword_ReturnsHash() {
 	// Arrange
-	input := "test input"
-	expected := "expected output"
+	password := "SecureP@ssw0rd"
 
 	// Act
-	result := s.sut.SomeMethod(input)
+	hash, err := s.sut.Hash(password)
 
 	// Assert
-	s.Equal(expected, result)
+	s.Require().NoError(err)
+	s.NotEmpty(hash)
 }
 
-func (s *MyStructTestSuite) TestSomeMethod_WithError() {
+func (s *PasswordHasherServiceTestSuite) TestVerify_WrongPassword_ReturnsFalse() {
 	// Arrange
-	invalidInput := ""
+	password := "SecureP@ssw0rd"
+	hash, err := s.sut.Hash(password)
+	s.Require().NoError(err)
 
 	// Act
-	result, err := s.sut.SomeMethodWithError(invalidInput)
+	ok, err := s.sut.Verify(hash, "WrongPassword1!")
 
 	// Assert
-	s.Require().Error(err)
-	s.Empty(result)
+	s.Require().NoError(err)
+	s.False(ok)
 }
 ```
 
-**With Mocks:**
+**Suite with mocks example:**
 
 ```go
-package mypackage_test
+package user_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/example/project/internal/modules/identity/errs"
+	"github.com/example/project/internal/modules/identity/usecase/user"
+	"github.com/example/project/test/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
-
-	"github.com/example/project/test/mocks"
 )
 
-type UserServiceTestSuite struct {
+type UserCreateUseCaseTestSuite struct {
 	suite.Suite
-	sut              *mypackage.UserService
-	userRepoMock     *mocks.MockUserRepository
-	tokenServiceMock *mocks.MockTokenService
+	sut                *user.UserCreateUseCase
+	userRepoMock       *mocks.MockUserRepository
+	passwordHasherMock *mocks.MockPasswordHasher
+	useCaseMetricsMock *mocks.MockUseCaseMetrics
 }
 
-func (s *UserServiceTestSuite) SetupTest() {
-	// Initialize mocks
+func (s *UserCreateUseCaseTestSuite) SetupTest() {
 	s.userRepoMock = mocks.NewMockUserRepository(s.T())
-	s.tokenServiceMock = mocks.NewMockTokenService(s.T())
+	s.passwordHasherMock = mocks.NewMockPasswordHasher(s.T())
+	s.useCaseMetricsMock = mocks.NewMockUseCaseMetrics(s.T())
 
-	// Initialize sut with mocked dependencies
-	s.sut = mypackage.NewUserService(
+	s.sut = user.NewUserCreateUseCase(
 		s.userRepoMock,
-		s.tokenServiceMock,
+		s.passwordHasherMock,
+		s.useCaseMetricsMock,
 	)
 }
 
-func TestUserServiceSuite(t *testing.T) {
-	suite.Run(t, new(UserServiceTestSuite))
+func TestUserCreateUseCaseSuite(t *testing.T) {
+	suite.Run(t, new(UserCreateUseCaseTestSuite))
 }
 
-func (s *UserServiceTestSuite) TestCreateUser_ValidInput_CreatesUser() {
+func (s *UserCreateUseCaseTestSuite) TestExecute_ValidInput_CreatesUser() {
 	// Arrange
 	ctx := context.Background()
-	user := &mypackage.User{
-		Email: "test@example.com",
-		Name:  "Test User",
+	input := user.UserCreateInput{
+		Email:    "test@example.com",
+		Password: "SecureP@ssw0rd",
 	}
 
-	s.userRepoMock.On("Create", mock.Anything, user).Return(nil)
+	s.userRepoMock.On("FindByEmail", mock.Anything, input.Email).
+		Return(model.UserModel{}, errs.ErrRecordNotFound)
+	s.passwordHasherMock.On("Hash", input.Password).Return([]byte("hash"), nil)
+	s.userRepoMock.On("Create", mock.Anything, mock.AnythingOfType("model.UserModel")).
+		Return(model.UserModel{ID: 1, Email: input.Email}, nil)
+	s.useCaseMetricsMock.On("ObserveDuration", "user_create", mock.Anything).Maybe()
+	s.useCaseMetricsMock.On("IncSuccess", "user_create").Maybe()
 
 	// Act
-	err := s.sut.CreateUser(ctx, user)
+	output, err := s.sut.Execute(ctx, input)
 
 	// Assert
 	s.Require().NoError(err)
+	s.Equal(uint64(1), output.ID)
+	s.Equal("test@example.com", output.Email)
 }
 
-func (s *UserServiceTestSuite) TestCreateUser_RepositoryError_ReturnsError() {
+func (s *UserCreateUseCaseTestSuite) TestExecute_DuplicateEmail_ReturnsError() {
 	// Arrange
 	ctx := context.Background()
-	user := &mypackage.User{
-		Email: "test@example.com",
-		Name:  "Test User",
+	input := user.UserCreateInput{
+		Email:    "existing@example.com",
+		Password: "SecureP@ssw0rd",
 	}
-	expectedError := errors.New("repository error")
 
-	s.userRepoMock.On("Create", mock.Anything, user).Return(expectedError)
-
-	// Act
-	err := s.sut.CreateUser(ctx, user)
-
-	// Assert
-	s.Require().ErrorIs(err, expectedError)
-}
-
-func (s *UserServiceTestSuite) TestGenerateToken_ValidUser_ReturnsToken() {
-	// Arrange
-	ctx := context.Background()
-	userID := "user-123"
-	expectedToken := "token-abc"
-
-	s.tokenServiceMock.On(
-		"Generate",
-		mock.Anything,
-		userID,
-	).Return(expectedToken, nil)
+	s.userRepoMock.On("FindByEmail", mock.Anything, input.Email).
+		Return(model.UserModel{ID: 1}, nil)
+	s.useCaseMetricsMock.On("ObserveDuration", "user_create", mock.Anything).Maybe()
+	s.useCaseMetricsMock.On("IncError", "user_create").Maybe()
 
 	// Act
-	token, err := s.sut.GenerateToken(ctx, userID)
+	output, err := s.sut.Execute(ctx, input)
 
 	// Assert
-	s.Require().NoError(err)
-	s.Equal(expectedToken, token)
+	s.Require().ErrorIs(err, errs.ErrDuplicateEmail)
+	s.Equal(uint64(0), output.ID)
 }
 ```
 
-**Mock Rules:**
-- Always pass `mock.Anything` for context parameters
-- Mock naming follows pattern `MockType` (e.g., `MockUserRepository`, `MockTokenService`)
-- Import mocks with aliases: `user_repository_mocks "github.com/project/internal/domain/repository/mocks"`
+**Suite with one-time setup example:**
 
-### Pattern 2: Tests for Standalone Functions
-
-Use individual test functions with subtests for functions without instances.
-
-**Key Rules:**
-- Create test functions using `func TestXxx(t *testing.T)`
-- Use `t.Run` for subtests covering different scenarios
-- Use `require` for error assertions (e.g., `require.ErrorIs`, `require.Error`)
-
-**Example:**
+Use `SetupSuite` + `TearDownSuite` when initialization is expensive and safe to share across all tests (e.g. generating RSA keys, creating temp directories).
 
 ```go
-package mypackage_test
+type JWTServiceTestSuite struct {
+	suite.Suite
+	sut    *service.JWTService
+	keyDir string
+}
+
+func (s *JWTServiceTestSuite) SetupSuite() {
+	dir, err := os.MkdirTemp("", "jwt_test_keys")
+	s.Require().NoError(err)
+	s.keyDir = dir
+	// ... generate keys, configure sut ...
+}
+
+func (s *JWTServiceTestSuite) TearDownSuite() {
+	if s.keyDir != "" {
+		_ = os.RemoveAll(s.keyDir)
+	}
+}
+```
+
+## Pattern 2: Standalone Functions
+
+Use individual top-level test functions for standalone functions, value objects, validators, or enums. No suite needed.
+
+**Rules:**
+- One top-level `TestFunctionName_Scenario_ExpectedResult` per scenario
+- Use `require.Error/NoError/ErrorIs` for error checks; `assert.Equal/Empty/True` for value comparisons
+- Use table-driven tests (`tests []struct{ ... }` + `t.Run`) when testing the same function with many similar inputs (e.g. validating multiple valid/invalid values)
+
+**Single-scenario example:**
+
+```go
+package validator_test
 
 import (
 	"testing"
 
+	"github.com/example/project/internal/modules/identity/errs"
+	"github.com/example/project/internal/modules/identity/validator"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestSomeFunction(t *testing.T) {
-	t.Run("valid input returns expected result", func(t *testing.T) {
-		// Arrange
-		input := "test input"
-		expected := "expected output"
+func TestPasswordValidator_ValidPassword_Passes(t *testing.T) {
+	// Arrange
+	v := validator.NewPasswordValidator()
 
-		// Act
-		result := SomeFunction(input)
+	// Act
+	err := v.Validate("SecureP@ssw0rd")
 
-		// Assert
-		require.Equal(t, expected, result)
-	})
+	// Assert
+	require.NoError(t, err)
+}
 
-	t.Run("empty input returns error", func(t *testing.T) {
-		// Arrange
-		input := ""
+func TestPasswordValidator_TooShort_ReturnsError(t *testing.T) {
+	// Arrange
+	v := validator.NewPasswordValidator()
 
-		// Act
-		result, err := SomeFunctionWithError(input)
+	// Act
+	err := v.Validate("Ab1!")
 
-		// Assert
-		require.Error(t, err)
-		require.Empty(t, result)
-	})
-
-	t.Run("nil input returns error", func(t *testing.T) {
-		// Arrange
-		var input *string
-
-		// Act
-		result, err := SomeFunctionWithPointer(input)
-
-		// Assert
-		require.ErrorIs(t, err, ErrNilInput)
-		require.Empty(t, result)
-	})
+	// Assert
+	require.Error(t, err)
+	assert.ErrorIs(t, err, errs.ErrPasswordPolicyViolation)
 }
 ```
 
-## Test Structure Requirements
+**Table-driven example:**
 
-### (CRITICAL) Arrange-Act-Assert Pattern 
+```go
+package enum_test
 
-Every test must follow AAA pattern with explicit comments:
+import (
+	"testing"
+
+	"github.com/example/project/internal/modules/identity/enum"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestNewUserStatusEnum_ValidValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{"pending_verification", enum.UserStatusPendingVerification},
+		{"active", enum.UserStatusActive},
+		{"locked", enum.UserStatusLocked},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Act
+			e, err := enum.NewUserStatusEnum(tt.value)
+
+			// Assert
+			require.NoError(t, err)
+			assert.Equal(t, tt.value, e.String())
+		})
+	}
+}
+
+func TestNewUserStatusEnum_InvalidValue_ReturnsError(t *testing.T) {
+	// Arrange
+	invalidValue := "invalid_status"
+
+	// Act
+	e, err := enum.NewUserStatusEnum(invalidValue)
+
+	// Assert
+	require.ErrorIs(t, err, errs.ErrInvalidUserStatus)
+	assert.Equal(t, enum.UserStatusEnum{}, e)
+}
+```
+
+## Mock Rules
+
+- Mocks live in `test/mocks/` and are generated by mockery v2 or v3 — never write them by hand
+- Import as `"github.com/example/project/test/mocks"` — no alias needed
+- Always pass `s.T()` to the mock constructor: `mocks.NewMockUserRepository(s.T())`
+- Always pass `mock.Anything` for `context.Context` parameters
+- Use `mock.AnythingOfType("pkg.TypeName")` when you need to match by type without checking exact value
+- Use `.Maybe()` on mock expectations that may or may not be called (e.g. metrics, logging decorators)
+
+## Arrange-Act-Assert
+
+Every test must have explicit `// Arrange`, `// Act`, `// Assert` comments. Mock expectations (`.On(...)`) belong in the Arrange block.
 
 ```go
 // Arrange
+input := "test"
+s.repoMock.On("Find", mock.Anything, input).Return(result, nil)
+
 // Act
+output, err := s.sut.Execute(ctx, input)
+
 // Assert
+s.Require().NoError(err)
+s.Equal("expected", output.Name)
 ```
 
-### Code Style
+## Code Style
 
-- Never use inline struct construction; always create variable first
+- Never use inline struct literals in assertions — always assign to a variable first
 - Maximum 120 characters per line
-- Test names must clearly indicate what is being tested
-- Add comments for complex test setups or assertions
-
-### Test Coverage
-- Include happy path scenarios
-- Include edge cases
-- Include error handling
-- Aim for minimum test scenarios possible while maintaining at least 80% coverage
+- Test function names must describe what is being tested: `TestMethod_Scenario_ExpectedOutcome`
 
 ## Completion
+
+before completeing the tests run `make lint` to verify that the code follows the project's style guidelines.
 
 When tests are complete, respond with: **Tests Done, Oh Yeah!**
