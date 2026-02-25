@@ -71,7 +71,7 @@ import (
 	"context"
 
 	"github.com/cristiano-pacheco/bricks/pkg/logger"
-    "github.com/cristiano-pacheco/bricks/pkg/otel/trace"
+  "github.com/cristiano-pacheco/bricks/pkg/otel/trace"
 	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/dto"
 	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/ports"
 )
