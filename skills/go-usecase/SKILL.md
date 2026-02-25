@@ -50,7 +50,6 @@ Implement this order in the file:
 3. Use case struct with dependencies
 4. Constructor `New<Operation>UseCase`
 5. Public `Execute` method (contains all business logic)
-6. Input and Output must NOT CONTAIN `json` tags, only validation tags when needed for input.
 
 ## Current architecture rule
 
@@ -156,14 +155,14 @@ Inject multiple ports as interfaces (repositories, caches, services) in the use 
 ### Check existing record before create
 
 ```go
-import brickserrors "github.com/cristiano-pacheco/pkg/errs"
+import brickserrors "github.com/cristiano-pacheco/bricks/pkg/errs"
 
 record, err := uc.repo.FindByX(ctx, input.Field)
 if err != nil && !errors.Is(err, brickserrors.ErrRecordNotFound) {
-	return output, err
+	return <Operation>Output{}, err
 }
 if record.ID != 0 {
-	return output, brickserrors.ErrAlreadyExists
+	return <Operation>Output{}, brickserrors.ErrAlreadyExists
 }
 ```
 
@@ -172,9 +171,9 @@ if record.ID != 0 {
 ```go
 enumVal, err := enum.NewTypeEnum(input.Type)
 if err != nil {
-	return output, err
+	return <Operation>Output{}, err
 }
-model.Type = enumVal.String()
+// Assign to your model field
 ```
 
 ### Map list response
@@ -182,13 +181,16 @@ model.Type = enumVal.String()
 ```go
 items, err := uc.repo.FindAll(ctx)
 if err != nil {
-	return output, err
+	return <Operation>Output{}, err
 }
 
-output.Items = make([]ItemOutput, len(items))
+output := <Operation>Output{
+	Items: make([]ItemOutput, len(items)),
+}
 for i, item := range items {
 	output.Items[i] = ItemOutput{ID: item.ID, Name: item.Name}
 }
+return output, nil
 ```
 
 ## Wire with Fx
@@ -271,9 +273,10 @@ This keeps:
 2. Keep orchestration in use case; keep persistence in repositories.
 3. Use a single public `Execute` method; do not create a private `execute` wrapper.
 4. Always define both Input and Output structs (use empty struct when needed).
-5. Keep naming consistent across file, structs, constructor, and method.
-6. Return typed output DTOs; do not leak persistence models directly.
-7. Keep observability and translation outside usecases (via decorators).
+5. Input and Output must NOT contain `json` tags; use validation tags on Input only when needed.
+6. Keep naming consistent across file, structs, constructor, and method.
+7. Return typed output DTOs; do not leak persistence models directly.
+8. Keep observability and translation outside usecases (via decorators).
 
 ## Final checklist
 
