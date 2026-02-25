@@ -1,11 +1,11 @@
 ---
 name: go-service
-description: Generate Go services following GO modular architechture conventions (Fx DI, OTEL tracing, interface-first design). Use when creating reusable business services in internal/modules/<module>/service/ - email senders, token generators, hashing utilities, template compilers, cache-backed lookups, or any domain service that encapsulates a single responsibility and is consumed by use cases or other services.
+description: Generate Go services following GO modular architecture conventions (Fx DI, OTEL tracing, interface-first design). Use when creating reusable business services in internal/modules/<module>/service/ - email senders, token generators, hashing utilities, template compilers, cache-backed lookups, or any domain service that encapsulates a single responsibility and is consumed by use cases or other services.
 ---
 
 # Go Service
 
-Generate service files for GO modular architechture conventions.
+Generate service files for GO modular architecture conventions.
 
 ## Three-File Pattern
 
@@ -71,7 +71,7 @@ import (
 	"context"
 
 	"github.com/cristiano-pacheco/bricks/pkg/logger"
-  "github.com/cristiano-pacheco/bricks/pkg/otel/trace"
+	"github.com/cristiano-pacheco/bricks/pkg/otel/trace"
 	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/dto"
 	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/ports"
 )
@@ -164,7 +164,6 @@ defer span.End()
 ```
 
 Span name format: `"StructName.MethodName"`
-```
 
 ## Naming
 
@@ -226,6 +225,6 @@ if err != nil {
 1. Create DTO file in `dto/<name>_dto.go` (if input/output structs are needed)
 2. Create port interface in `ports/<name>_service.go`
 3. Create service implementation in `service/<name>_service.go`
-4. Add Fx wiring to module's `module.go` (or `fx.go`)
+4. Add Fx wiring to module's `fx.go`
 5. Run `make lint` to verify
 6. Run `make nilaway` for static analysis
