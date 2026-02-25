@@ -1,31 +1,51 @@
 ---
 name: go-cache
-description: Generate Go cache implementations following GO modular architechture conventions. Use when creating cache layers in internal/modules/<module>/cache/ - user state caching, session caching, rate limiting data, temporary data storage, or any domain cache that uses Redis for fast data access with TTL support.
+description: Generate Go cache implementations following GO modular architecture conventions. Always use this skill when the user asks to create a cache, add a Redis cache layer, cache short-lived data with TTL, implement rate limiting storage, OTP caching, session caching, OAuth state storage, or any domain cache in internal/modules/<module>/cache/. Invoke proactively whenever the user mentions caching, Redis-backed storage, TTL expiry, or temporary data — even if they don't say "cache" explicitly.
 ---
 
 # Go Cache
 
-Generate cache files for Go backend using Redis.
+Generate two files for every cache: a **port interface** and a **Redis-backed implementation**.
+
+## Which Variant?
+
+Pick before writing anything:
+
+| Scenario | Variant | Get return type |
+|---|---|---|
+| Flag, existence check, rate limit | **Boolean flag** | `bool` |
+| Structured data — tokens, sessions, profiles | **JSON data** | `*dto.XxxData` |
+
+For TTL:
+- **Fixed TTL** — short-lived or individually written entries (OTPs, OAuth state, rate limits, sessions)
+- **Randomized TTL** — long-lived entries written in bulk (activation flags, daily metrics) — prevents cache stampede
 
 ## Two-File Pattern
 
-Every cache requires two files:
+Every cache requires exactly two files:
 
 1. **Port interface**: `internal/modules/<module>/ports/<cache_name>_cache.go`
 2. **Cache implementation**: `internal/modules/<module>/cache/<cache_name>_cache.go`
 
-### Cache File Layout Order
+### File Layout Order
 
-1. Constants (cache key prefix, TTL)
+1. Constants (key prefix, TTL)
 2. Implementation struct (`XxxCache`)
 3. Compile-time interface assertion
 4. Constructor (`NewXxxCache`)
-5. Methods (`Set`, `Get`, `Delete`, etc.)
+5. Methods (`Set`, `Get`, `Delete`)
 6. Helper methods (`buildKey`, `calculateTTL`)
 
-## Port Interface
+---
 
-**Location**: `internal/modules/<module>/ports/<cache_name>_cache.go`
+## Boolean Flag Cache
+
+Use when caching simple existence flags, presence checks, or rate limit states.
+
+- Store `"1"` as the value
+- Return `false, nil` when the key doesn't exist (not an error)
+
+### Port
 
 ```go
 package ports
@@ -40,9 +60,7 @@ type XxxCache interface {
 }
 ```
 
-## Cache Implementation
-
-**Location**: `internal/modules/<module>/cache/<cache_name>_cache.go`
+### Implementation
 
 ```go
 package cache
@@ -102,33 +120,118 @@ func (c *EntityCache) buildKey(id uint64) string {
 }
 ```
 
-## Cache Variants
+---
 
-### Boolean Flag Cache (Set/Get/Delete)
+## JSON Data Cache
 
-Use when caching simple existence or state flags.
-
-- Store `"1"` as value
-- Return `false, nil` when key doesn't exist
-
-### JSON Data Cache (Set/Get/Delete)
-
-Use when caching structured data. Data structs are defined in the `dto` package.
+Use when caching structured data. Data structs are defined in the `dto` package, never in `ports`.
 
 - Serialize with `json.Marshal` before storing
 - Deserialize with `json.Unmarshal` when retrieving
-- Return `nil, nil` on missing key, or a domain error if the key is expected to always exist (e.g. `errs.ErrXxxNotFound`)
+- Return `nil, nil` on missing key — unless the key is always expected to exist, in which case return a domain error (e.g., `errs.ErrXxxNotFound`)
 - Use distinct variable names (`getErr`, `unmarshalErr`) to avoid shadowing
 
-## Redis Nil Detection
-
-Always import `redislib "github.com/redis/go-redis/v9"` and use `redislib.Nil`:
+### Port
 
 ```go
-if errors.Is(err, redislib.Nil) {
-	return false, nil // key doesn't exist — not an error
+package ports
+
+import (
+	"context"
+
+	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/dto"
+}
+
+// XxxCache describes ...
+type XxxCache interface {
+	Set(ctx context.Context, key string, data dto.XxxData) error
+	Get(ctx context.Context, key string) (dto.XxxData, error)
+	Delete(ctx context.Context, key string) error
 }
 ```
+
+### Implementation
+
+```go
+package cache
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/cristiano-pacheco/bricks/pkg/redis"
+	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/dto"
+	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/ports"
+	redislib "github.com/redis/go-redis/v9"
+)
+
+const (
+	entityCacheKeyPrefix = "entity_name:"
+	entityCacheTTL       = 10 * time.Minute
+)
+
+type EntityCache struct {
+	redisClient redis.UniversalClient
+}
+
+var _ ports.EntityCache = (*EntityCache)(nil)
+
+func NewEntityCache(redisClient redis.UniversalClient) *EntityCache {
+	return &EntityCache{
+		redisClient: redisClient,
+	}
+}
+
+func (c *EntityCache) Set(ctx context.Context, key string, data dto.EntityData) error {
+	cacheKey := c.buildKey(key)
+	jsonData, err := json.Marshal(data)
+
+	if err != nil {
+		return fmt.Errorf("marshal entity data: %w", err)
+	}
+
+	return c.redisClient.Set(ctx, cacheKey, jsonData, entityCacheTTL).Err()
+}
+
+func (c *EntityCache) Get(ctx context.Context, key string) (dto.EntityData, error) {
+	cacheKey := c.buildKey(key)
+	result := c.redisClient.Get(ctx, cacheKey)
+
+	if getErr := result.Err(); getErr != nil {
+		if errors.Is(getErr, redislib.Nil) {
+			return dto.EntityData{}, nil
+		}
+		return dto.EntityData{}, getErr
+	}
+
+	jsonData, err := result.Bytes()
+
+	if err != nil {
+		return dto.EntityData{}, fmt.Errorf("get bytes: %w", err)
+	}
+
+	var entityData dto.EntityData
+	if unmarshalErr := json.Unmarshal(jsonData, &entityData); unmarshalErr != nil {
+		return dto.EntityData{}, fmt.Errorf("unmarshal entity data: %w", unmarshalErr)
+	}
+	
+	return entityData, nil
+}
+
+func (c *EntityCache) Delete(ctx context.Context, key string) error {
+	cacheKey := c.buildKey(key)
+	return c.redisClient.Del(ctx, cacheKey).Err()
+}
+
+func (c *EntityCache) buildKey(key string) string {
+	return entityCacheKeyPrefix + key
+}
+```
+
+---
 
 ## Key Building
 
@@ -192,14 +295,6 @@ Common TTL ranges:
 - `12-25 hours` — Activation flags, daily metrics
 - `6.5-7.5 days` — Weekly aggregations
 
-## Context
-
-Always accept `ctx context.Context` as the first parameter in every method:
-
-```go
-func (c *EntityCache) Set(ctx context.Context, id uint64) error {
-```
-
 ## Naming
 
 - Port interface: `XxxCache` (`ports` package, no suffix)
@@ -225,144 +320,25 @@ fx.Provide(
 - `redis.UniversalClient` from `"github.com/cristiano-pacheco/bricks/pkg/redis"`
 - `redislib "github.com/redis/go-redis/v9"` for nil detection
 
-## Example: JSON Data Cache (OAuth State)
-
-DTO (`dto/oauth_state_dto.go`):
-
-```go
-package dto
-
-type OAuthStateData struct {
-	// fields
-}
-```
-
-Port (`ports/oauth_state_cache.go`):
-
-```go
-package ports
-
-import (
-	"context"
-
-	"github.com/cristiano-pacheco/pingo/internal/modules/identity/dto"
-)
-
-// OAuthStateCache manages temporary OAuth state tokens used during the authorization flow.
-// Tokens are short-lived and must be consumed exactly once to prevent CSRF attacks.
-type OAuthStateCache interface {
-	Set(ctx context.Context, state string, data dto.OAuthStateData) error
-	Get(ctx context.Context, state string) (*dto.OAuthStateData, error)
-	Delete(ctx context.Context, state string) error
-}
-```
-
-Implementation (`cache/oauth_state_cache.go`):
-
-```go
-package cache
-
-import (
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"time"
-
-	"github.com/cristiano-pacheco/bricks/pkg/redis"
-	"github.com/cristiano-pacheco/pingo/internal/modules/identity/dto"
-	"github.com/cristiano-pacheco/pingo/internal/modules/identity/errs"
-	"github.com/cristiano-pacheco/pingo/internal/modules/identity/ports"
-	redislib "github.com/redis/go-redis/v9"
-)
-
-const (
-	oauthStateKeyPrefix = "oauth_state:"
-	oauthStateTTL       = 10 * time.Minute
-)
-
-type OAuthStateCache struct {
-	redisClient redis.UniversalClient
-}
-
-var _ ports.OAuthStateCache = (*OAuthStateCache)(nil)
-
-func NewOAuthStateCache(redisClient redis.UniversalClient) *OAuthStateCache {
-	return &OAuthStateCache{
-		redisClient: redisClient,
-	}
-}
-
-func (c *OAuthStateCache) Set(ctx context.Context, state string, data dto.OAuthStateData) error {
-	key := c.buildKey(state)
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("marshal oauth state: %w", err)
-	}
-	return c.redisClient.Set(ctx, key, jsonData, oauthStateTTL).Err()
-}
-
-func (c *OAuthStateCache) Get(ctx context.Context, state string) (*dto.OAuthStateData, error) {
-	key := c.buildKey(state)
-	result := c.redisClient.Get(ctx, key)
-	if getErr := result.Err(); getErr != nil {
-		if errors.Is(getErr, redislib.Nil) {
-			return nil, errs.ErrOAuthStateNotFound
-		}
-		return nil, getErr
-	}
-	jsonData, err := result.Bytes()
-	if err != nil {
-		return nil, fmt.Errorf("get bytes: %w", err)
-	}
-	var data dto.OAuthStateData
-	if unmarshalErr := json.Unmarshal(jsonData, &data); unmarshalErr != nil {
-		return nil, fmt.Errorf("unmarshal oauth state: %w", unmarshalErr)
-	}
-	return &data, nil
-}
-
-func (c *OAuthStateCache) Delete(ctx context.Context, state string) error {
-	key := c.buildKey(state)
-	return c.redisClient.Del(ctx, key).Err()
-}
-
-func (c *OAuthStateCache) buildKey(state string) string {
-	return oauthStateKeyPrefix + state
-}
-```
-
-Fx wiring (`module.go`):
-
-```go
-fx.Provide(
-	fx.Annotate(
-		cache.NewOAuthStateCache,
-		fx.As(new(ports.OAuthStateCache)),
-	),
-),
-```
-
 ## Critical Rules
 
 1. **Two files**: Port in `ports/`, implementation in `cache/`
-2. **Interface assertion**: `var _ ports.XxxCache = (*XxxCache)(nil)` below the struct
+2. **Interface assertion**: `var _ ports.XxxCache = (*XxxCache)(nil)` immediately below the struct
 3. **Constructor**: Returns `*XxxCache` (pointer)
-4. **Context**: Always accept `ctx context.Context` as first parameter — never use `context.Background()` internally
-5. **Redis nil**: Import `redislib "github.com/redis/go-redis/v9"` and use `errors.Is(err, redislib.Nil)`
-6. **Fixed vs randomized TTL**: Use fixed TTL for short-lived data; use `calculateTTL()` only for long-lived bulk data to prevent cache stampede
-7. **buildKey**: Always use a `buildKey()` helper; use `+` concatenation for string IDs, `fmt.Sprintf` for numeric IDs
-8. **Missing keys**: Return zero value + `nil`, or a domain error if the key is expected to exist
-9. **Data types in dto**: Define data structs in the `dto` package, never in `ports`
-10. **No comments on methods**: Only add detailed doc comments on port interfaces
-11. **Redis client type**: `redis.UniversalClient` from `github.com/cristiano-pacheco/bricks/pkg/redis`
-12. **No TTL in interface**: TTL is internal, never exposed as a method parameter
-13. **Error messages**: Use short format `"action noun: %w"` (e.g. `"marshal oauth state: %w"`)
+4. **Context**: Always accept `ctx context.Context` as first parameter — never call `context.Background()` internally
+5. **Redis nil**: Import `redislib "github.com/redis/go-redis/v9"` and check with `errors.Is(err, redislib.Nil)`
+6. **TTL scope**: TTL is an implementation detail — never expose it as a method parameter
+7. **buildKey**: Always use a `buildKey()` helper; `+` for string IDs, `fmt.Sprintf` for numeric IDs
+8. **Missing keys**: Boolean cache returns `false, nil`; JSON cache returns `nil, nil` (or a domain error if the key must exist)
+9. **DTOs in dto package**: Data structs belong in `dto/`, never defined inline in `ports/`
+10. **No method comments**: Only port interfaces get doc comments; implementation methods do not
+11. **Error messages**: `"action noun: %w"` format (e.g., `"marshal oauth state: %w"`, `"get bytes: %w"`)
 
 ## Workflow
 
-1. Create port interface in `ports/<name>_cache.go`
-2. Create cache implementation in `cache/<name>_cache.go`
-3. Add Fx wiring to `module.go`
-4. Run `make lint`
-5. Run `make nilaway`
+1. Decide variant: Boolean flag or JSON data?
+2. Create port interface in `ports/<name>_cache.go`
+3. Create cache implementation in `cache/<name>_cache.go`
+4. Add Fx wiring to `module.go`
+5. Run `make lint`
+6. Run `make nilaway`
