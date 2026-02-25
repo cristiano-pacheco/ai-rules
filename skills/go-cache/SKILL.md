@@ -14,10 +14,6 @@ Every cache requires two files:
 1. **Port interface**: `internal/modules/<module>/ports/<cache_name>_cache.go`
 2. **Cache implementation**: `internal/modules/<module>/cache/<cache_name>_cache.go`
 
-### Port File Layout Order
-
-1. Interface definition (`XxxCache` — no suffix)
-
 ### Cache File Layout Order
 
 1. Constants (cache key prefix, TTL)
@@ -25,23 +21,26 @@ Every cache requires two files:
 3. Compile-time interface assertion
 4. Constructor (`NewXxxCache`)
 5. Methods (`Set`, `Get`, `Delete`, etc.)
-6. Helper methods (`buildKey`, etc.)
+6. Helper methods (`buildKey`, `calculateTTL`)
 
-## Port Interface Structure
+## Port Interface
 
 **Location**: `internal/modules/<module>/ports/<cache_name>_cache.go`
 
 ```go
 package ports
 
-type UserActivatedCache interface {
-	Set(userID uint64) error
-	Get(userID uint64) (bool, error)
-	Delete(userID uint64) error
+import "context"
+
+// XxxCache describes ...
+type XxxCache interface {
+	Set(ctx context.Context, id uint64) error
+	Get(ctx context.Context, id uint64) (bool, error)
+	Delete(ctx context.Context, id uint64) error
 }
 ```
 
-## Cache Implementation Structure
+## Cache Implementation
 
 **Location**: `internal/modules/<module>/cache/<cache_name>_cache.go`
 
@@ -56,12 +55,12 @@ import (
 
 	"github.com/cristiano-pacheco/bricks/pkg/redis"
 	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/ports"
+	redislib "github.com/redis/go-redis/v9"
 )
 
 const (
-	cacheKeyPrefix = "entity_name:"
-	cacheTTLMin    = 23 * time.Hour
-	cacheTTLMax    = 25 * time.Hour
+	entityCacheKeyPrefix = "entity_name:"
+	entityCacheTTL       = 10 * time.Minute
 )
 
 type EntityCache struct {
@@ -76,204 +75,137 @@ func NewEntityCache(redisClient redis.UniversalClient) *EntityCache {
 	}
 }
 
-func (c *EntityCache) Set(id uint64) error {
+func (c *EntityCache) Set(ctx context.Context, id uint64) error {
 	key := c.buildKey(id)
-	ctx := context.Background()
-
-	ttl := c.calculateTTL()
-	return c.redisClient.Set(ctx, key, "1", ttl).Err()
+	return c.redisClient.Set(ctx, key, "1", entityCacheTTL).Err()
 }
 
-func (c *EntityCache) calculateTTL() time.Duration {
-	min := cacheTTLMin.Milliseconds()
-	max := cacheTTLMax.Milliseconds()
-	randomMs := min + rand.Int63n(max-min+1)
-	return time.Duration(randomMs) * time.Millisecond
-}
-
-func (c *EntityCache) Get(id uint64) (bool, error) {
+func (c *EntityCache) Get(ctx context.Context, id uint64) (bool, error) {
 	key := c.buildKey(id)
-	ctx := context.Background()
-
 	result := c.redisClient.Get(ctx, key)
 	if err := result.Err(); err != nil {
-		if errors.Is(err, redisClient.Nil) {
-			return false, nil // Key does not exist
+		if errors.Is(err, redislib.Nil) {
+			return false, nil
 		}
 		return false, err
 	}
-
 	return true, nil
 }
 
-func (c *EntityCache) Delete(id uint64) error {
+func (c *EntityCache) Delete(ctx context.Context, id uint64) error {
 	key := c.buildKey(id)
-	ctx := context.Background()
-
 	return c.redisClient.Del(ctx, key).Err()
 }
 
 func (c *EntityCache) buildKey(id uint64) string {
-	return fmt.Sprintf("%s%d", cacheKeyPrefix, id)
+	return fmt.Sprintf("%s%d", entityCacheKeyPrefix, id)
 }
 ```
 
 ## Cache Variants
 
-### Boolean flag cache (Set/Get/Delete)
+### Boolean Flag Cache (Set/Get/Delete)
 
 Use when caching simple existence or state flags.
 
-Port (`ports/user_activated_cache.go`):
+- Store `"1"` as value
+- Return `false, nil` when key doesn't exist
 
-```go
-type UserActivatedCache interface {
-	Set(userID uint64) error
-	Get(userID uint64) (bool, error)
-	Delete(userID uint64) error
-}
-```
+### JSON Data Cache (Set/Get/Delete)
 
-Implementation notes:
-- Store `"1"` as value for true state
-- Return `false, nil` when key doesn't exist (not an error)
-- Use `errors.Is(err, redisClient.Nil)` to detect missing keys
+Use when caching structured data. Data structs are defined in the `dto` package.
 
-### Value cache (Set/Get/Delete with data)
-
-Use when caching structured data or strings.
-
-Port (`ports/session_cache.go`):
-
-```go
-type SessionCache interface {
-	Set(sessionID string, data SessionData) error
-	Get(sessionID string) (*SessionData, error)
-	Delete(sessionID string) error
-}
-```
-
-Implementation notes:
-- Serialize data with `json.Marshal` before storing
+- Serialize with `json.Marshal` before storing
 - Deserialize with `json.Unmarshal` when retrieving
-- Return `nil, nil` when key doesn't exist (not an error)
-- TTL is internal to the cache implementation with randomized range to prevent cache stampede
+- Return `nil, nil` on missing key, or a domain error if the key is expected to always exist (e.g. `errs.ErrXxxNotFound`)
+- Use distinct variable names (`getErr`, `unmarshalErr`) to avoid shadowing
 
-## Redis Client Usage
+## Redis Nil Detection
 
-The cache uses `redis.UniversalClient` directly from the Bricks Redis package (`github.com/cristiano-pacheco/bricks/pkg/redis`).
+Always import `redislib "github.com/redis/go-redis/v9"` and use `redislib.Nil`:
 
-Common operations:
-- `Set(ctx, key, value, ttl)` - Store value with TTL
-- `Get(ctx, key)` - Retrieve value
-- `Del(ctx, key)` - Delete key
-- `Exists(ctx, key)` - Check if key exists
-- `Incr(ctx, key)` - Increment counter
-- `Expire(ctx, key, ttl)` - Set TTL on existing key
+```go
+if errors.Is(err, redislib.Nil) {
+	return false, nil // key doesn't exist — not an error
+}
+```
 
 ## Key Building
 
-Always use a helper method to build cache keys consistently:
-
-```go
-func (c *EntityCache) buildKey(id uint64) string {
-	return fmt.Sprintf("%s%d", cacheKeyPrefix, id)
-}
-```
-
-For string IDs:
+String ID (simple concatenation):
 
 ```go
 func (c *EntityCache) buildKey(id string) string {
-	return fmt.Sprintf("%s%s", cacheKeyPrefix, id)
+	return entityCacheKeyPrefix + id
 }
 ```
 
-For composite keys:
+Uint64 ID:
+
+```go
+func (c *EntityCache) buildKey(id uint64) string {
+	return fmt.Sprintf("%s%d", entityCacheKeyPrefix, id)
+}
+```
+
+Composite key:
 
 ```go
 func (c *EntityCache) buildKey(userID uint64, resourceID string) string {
-	return fmt.Sprintf("%s%d:%s", cacheKeyPrefix, userID, resourceID)
+	return fmt.Sprintf("%s%d:%s", entityCacheKeyPrefix, userID, resourceID)
 }
 ```
 
 ## TTL Configuration
 
-Define TTL as a range at the package level to prevent cache stampede (multiple entries expiring simultaneously):
+**Fixed TTL** — for short-lived data where stampede is not a concern:
 
 ```go
 const (
-	cacheKeyPrefix    = "entity_name:"
-	cacheTTLMin       = 12 * time.Hour  // Minimum TTL
-	cacheTTLMax       = 24 * time.Hour  // Maximum TTL
+	entityCacheKeyPrefix = "entity_name:"
+	entityCacheTTL       = 10 * time.Minute
 )
 ```
 
-Use a helper function to calculate randomized TTL:
+**Randomized TTL** — for long-lived data created in bulk (prevents cache stampede):
 
 ```go
-import (
-	"math/rand"
-	"time"
+import "math/rand"
+
+const (
+	entityCacheKeyPrefix = "entity_name:"
+	entityCacheTTLMin    = 23 * time.Hour
+	entityCacheTTLMax    = 25 * time.Hour
 )
 
 func (c *EntityCache) calculateTTL() time.Duration {
-	min := cacheTTLMin.Milliseconds()
-	max := cacheTTLMax.Milliseconds()
+	min := entityCacheTTLMin.Milliseconds()
+	max := entityCacheTTLMax.Milliseconds()
 	randomMs := min + rand.Int63n(max-min+1)
 	return time.Duration(randomMs) * time.Millisecond
 }
 ```
 
 Common TTL ranges:
-- Short-lived: `4-6 minutes` - Rate limits, OTP codes
-- Session data: `50-70 minutes` - User sessions
-- Daily data: `12-25 hours` - User activation status, daily metrics
-- Weekly data: `6.5-7.5 days` - Weekly aggregations
+- `5-15 minutes` — OTP codes, OAuth state, rate limits
+- `50-70 minutes` — User sessions
+- `12-25 hours` — Activation flags, daily metrics
+- `6.5-7.5 days` — Weekly aggregations
 
-**Why randomized TTL?** When many cache entries are created at the same time (e.g., during traffic spikes), they would all expire simultaneously, causing a "thundering herd" to the database. Randomizing TTL spreads out expirations over time.
+## Context
 
-## Error Handling
-
-### Missing Key vs Error
-
-Distinguish between "key not found" (normal) and actual errors:
-
-```go
-result := client.Get(ctx, key)
-if err := result.Err(); err != nil {
-	if errors.Is(err, redisClient.Nil) {
-		return false, nil // Key doesn't exist - not an error
-	}
-	return false, err // Actual error
-}
-```
-
-
-## Context Usage
-
-Use `context.Background()` for cache operations unless you have a specific context:
-
-```go
-ctx := context.Background()
-```
-
-For operations called from handlers/use cases, accept context as parameter:
+Always accept `ctx context.Context` as the first parameter in every method:
 
 ```go
 func (c *EntityCache) Set(ctx context.Context, id uint64) error {
-	key := c.buildKey(id)
-	// Use provided ctx
-	return c.redisClient.Set(ctx, key, "1", cacheTTL).Err()
-}
 ```
 
 ## Naming
 
-- Port interface: `XxxCache` (in `ports` package, no suffix)
-- Implementation struct: `XxxCache` (in `cache` package, same name — disambiguated by package)
-- Constructor: `NewXxxCache`, returns a pointer of the struct implementation
-- Constants: `cacheKeyPrefix` and `cacheTTL` (lowercase, package-level)
+- Port interface: `XxxCache` (`ports` package, no suffix)
+- Implementation struct: `XxxCache` (`cache` package — same name, disambiguated by package)
+- Constructor: `NewXxxCache`, returns `*XxxCache`
+- Constants: lowercase, package-level (e.g. `entityCacheKeyPrefix`, `entityCacheTTL`)
 
 ## Fx Wiring
 
@@ -290,150 +222,42 @@ fx.Provide(
 
 ## Dependencies
 
-Caches depend on:
+- `redis.UniversalClient` from `"github.com/cristiano-pacheco/bricks/pkg/redis"`
+- `redislib "github.com/redis/go-redis/v9"` for nil detection
 
-- `redis.UniversalClient` from `"github.com/cristiano-pacheco/bricks/pkg/redis"` — Redis operations interface
+## Example: JSON Data Cache (OAuth State)
 
-## Example 1: Boolean Flag Cache (User Activation)
-
-Port interface (`ports/user_activated_cache.go`):
-
-```go
-package ports
-
-type UserActivatedCache interface {
-	Set(userID uint64) error
-	Get(userID uint64) (bool, error)
-	Delete(userID uint64) error
-}
-```
-
-Implementation (`cache/user_activated_cache.go`):
-
-```go
-package cache
-
-import (
-	"context"
-	"errors"
-	"fmt"
-	"strconv"
-	"time"
-
-	"github.com/cristiano-pacheco/bricks/pkg/redis"
-	"github.com/cristiano-pacheco/pingo/internal/modules/identity/ports"
-)
-
-const (
-	cacheKeyPrefix = "user_activated:"
-	cacheTTLMin    = 23 * time.Hour
-	cacheTTLMax    = 25 * time.Hour
-)
-
-type UserActivatedCache struct {
-	redisClient redis.UniversalClient
-}
-
-var _ ports.UserActivatedCache = (*UserActivatedCache)(nil)
-
-func NewUserActivatedCache(redisClient redis.UniversalClient) *UserActivatedCache {
-	return &UserActivatedCache{
-		redisClient: redisClient,
-	}
-}
-
-func (c *UserActivatedCache) Set(userID uint64) error {
-	key := c.buildKey(userID)
-	ctx := context.Background()
-
-	ttl := c.calculateTTL()
-	return c.redisClient.Set(ctx, key, "1", ttl).Err()
-}
-
-func (c *UserActivatedCache) calculateTTL() time.Duration {
-	min := cacheTTLMin.Milliseconds()
-	max := cacheTTLMax.Milliseconds()
-	randomMs := min + rand.Int63n(max-min+1)
-	return time.Duration(randomMs) * time.Millisecond
-}
-
-func (c *UserActivatedCache) Get(userID uint64) (bool, error) {
-	key := c.buildKey(userID)
-	ctx := context.Background()
-
-	result := c.redisClient.Get(ctx, key)
-	if err := result.Err(); err != nil {
-		if errors.Is(err, redisClient.Nil) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return true, nil
-}
-
-func (c *UserActivatedCache) Delete(userID uint64) error {
-	key := c.buildKey(userID)
-	ctx := context.Background()
-
-	return c.redisClient.Del(ctx, key).Err()
-}
-
-func (c *UserActivatedCache) buildKey(userID uint64) string {
-	return fmt.Sprintf("%s%s", cacheKeyPrefix, strconv.FormatUint(userID, 10))
-}
-```
-
-Fx wiring (`module.go`):
-
-```go
-fx.Provide(
-	fx.Annotate(
-		cache.NewUserActivatedCache,
-		fx.As(new(ports.UserActivatedCache)),
-	),
-),
-```
-
-## Example 2: JSON Data Cache (User Session)
-
-DTO (`dto/user_session_dto.go`):
+DTO (`dto/oauth_state_dto.go`):
 
 ```go
 package dto
 
-import "time"
-
-type UserSessionData struct {
-	UserID       uint64    `json:"user_id"`
-	Email        string    `json:"email"`
-	Name         string    `json:"name"`
-	Roles        []string  `json:"roles"`
-	LastActivity time.Time `json:"last_activity"`
-	IPAddress    string    `json:"ip_address"`
+type OAuthStateData struct {
+	// fields
 }
 ```
 
-Port interface (`ports/user_session_cache.go`):
+Port (`ports/oauth_state_cache.go`):
 
 ```go
 package ports
 
 import (
-	"time"
+	"context"
 
 	"github.com/cristiano-pacheco/pingo/internal/modules/identity/dto"
 )
 
-type UserSessionCache interface {
-	Set(sessionID string, data dto.UserSessionData) error
-	Get(sessionID string) (*dto.UserSessionData, error)
-	Delete(sessionID string) error
-	Exists(sessionID string) (bool, error)
+// OAuthStateCache manages temporary OAuth state tokens used during the authorization flow.
+// Tokens are short-lived and must be consumed exactly once to prevent CSRF attacks.
+type OAuthStateCache interface {
+	Set(ctx context.Context, state string, data dto.OAuthStateData) error
+	Get(ctx context.Context, state string) (*dto.OAuthStateData, error)
+	Delete(ctx context.Context, state string) error
 }
 ```
 
-Implementation (`cache/user_session_cache.go`):
+Implementation (`cache/oauth_state_cache.go`):
 
 ```go
 package cache
@@ -447,93 +271,64 @@ import (
 
 	"github.com/cristiano-pacheco/bricks/pkg/redis"
 	"github.com/cristiano-pacheco/pingo/internal/modules/identity/dto"
+	"github.com/cristiano-pacheco/pingo/internal/modules/identity/errs"
 	"github.com/cristiano-pacheco/pingo/internal/modules/identity/ports"
+	redislib "github.com/redis/go-redis/v9"
 )
 
 const (
-	sessionCacheKeyPrefix = "user_session:"
-	sessionCacheTTLMin    = 50 * time.Minute
-	sessionCacheTTLMax    = 70 * time.Minute
+	oauthStateKeyPrefix = "oauth_state:"
+	oauthStateTTL       = 10 * time.Minute
 )
 
-type UserSessionCache struct {
+type OAuthStateCache struct {
 	redisClient redis.UniversalClient
 }
 
-var _ ports.UserSessionCache = (*UserSessionCache)(nil)
+var _ ports.OAuthStateCache = (*OAuthStateCache)(nil)
 
-func NewUserSessionCache(redisClient redis.UniversalClient) *UserSessionCache {
-	return &UserSessionCache{
+func NewOAuthStateCache(redisClient redis.UniversalClient) *OAuthStateCache {
+	return &OAuthStateCache{
 		redisClient: redisClient,
 	}
 }
 
-func (c *UserSessionCache) Set(sessionID string, data dto.UserSessionData) error {
-	key := c.buildKey(sessionID)
-	ctx := context.Background()
-
+func (c *OAuthStateCache) Set(ctx context.Context, state string, data dto.OAuthStateData) error {
+	key := c.buildKey(state)
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("failed to marshal session data: %w", err)
+		return fmt.Errorf("marshal oauth state: %w", err)
 	}
-
-	ttl := c.calculateTTL()
-	return c.redisClient.Set(ctx, key, jsonData, ttl).Err()
+	return c.redisClient.Set(ctx, key, jsonData, oauthStateTTL).Err()
 }
 
-func (c *UserSessionCache) calculateTTL() time.Duration {
-	min := sessionCacheTTLMin.Milliseconds()
-	max := sessionCacheTTLMax.Milliseconds()
-	randomMs := min + rand.Int63n(max-min+1)
-	return time.Duration(randomMs) * time.Millisecond
-}
-
-func (c *UserSessionCache) Get(sessionID string) (*dto.UserSessionData, error) {
-	key := c.buildKey(sessionID)
-	ctx := context.Background()
-
+func (c *OAuthStateCache) Get(ctx context.Context, state string) (*dto.OAuthStateData, error) {
+	key := c.buildKey(state)
 	result := c.redisClient.Get(ctx, key)
-	if err := result.Err(); err != nil {
-		if errors.Is(err, redisClient.Nil) {
-			return nil, nil
+	if getErr := result.Err(); getErr != nil {
+		if errors.Is(getErr, redislib.Nil) {
+			return nil, errs.ErrOAuthStateNotFound
 		}
-		return nil, err
+		return nil, getErr
 	}
-
 	jsonData, err := result.Bytes()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get bytes: %w", err)
+		return nil, fmt.Errorf("get bytes: %w", err)
 	}
-
-	var data dto.UserSessionData
-	if err := json.Unmarshal(jsonData, &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal session data: %w", err)
+	var data dto.OAuthStateData
+	if unmarshalErr := json.Unmarshal(jsonData, &data); unmarshalErr != nil {
+		return nil, fmt.Errorf("unmarshal oauth state: %w", unmarshalErr)
 	}
-
 	return &data, nil
 }
 
-func (c *UserSessionCache) Delete(sessionID string) error {
-	key := c.buildKey(sessionID)
-	ctx := context.Background()
-
+func (c *OAuthStateCache) Delete(ctx context.Context, state string) error {
+	key := c.buildKey(state)
 	return c.redisClient.Del(ctx, key).Err()
 }
 
-func (c *UserSessionCache) Exists(sessionID string) (bool, error) {
-	key := c.buildKey(sessionID)
-	ctx := context.Background()
-
-	result := c.redisClient.Exists(ctx, key)
-	if err := result.Err(); err != nil {
-		return false, err
-	}
-
-	return result.Val() > 0, nil
-}
-
-func (c *UserSessionCache) buildKey(sessionID string) string {
-	return fmt.Sprintf("%s%s", sessionCacheKeyPrefix, sessionID)
+func (c *OAuthStateCache) buildKey(state string) string {
+	return oauthStateKeyPrefix + state
 }
 ```
 
@@ -542,174 +337,32 @@ Fx wiring (`module.go`):
 ```go
 fx.Provide(
 	fx.Annotate(
-		cache.NewUserSessionCache,
-		fx.As(new(ports.UserSessionCache)),
-	),
-),
-```
-
-## Example 3: Protobuf Data Cache (User Profile)
-
-Proto definition (`proto/user_profile.proto`):
-
-```protobuf
-syntax = "proto3";
-
-package identity;
-
-option go_package = "github.com/cristiano-pacheco/pingo/internal/modules/identity/proto";
-
-message UserProfile {
-	uint64 user_id = 1;
-	string email = 2;
-	string name = 3;
-	repeated string roles = 4;
-	int64 last_login = 5;
-	string avatar_url = 6;
-}
-```
-
-Port interface (`ports/user_profile_cache.go`):
-
-```go
-package ports
-
-import (
-	"time"
-
-	"github.com/cristiano-pacheco/pingo/internal/modules/identity/proto"
-)
-
-type UserProfileCache interface {
-	Set(userID uint64, profile *proto.UserProfile) error
-	Get(userID uint64) (*proto.UserProfile, error)
-	Delete(userID uint64) error
-}
-```
-
-Implementation (`cache/user_profile_cache.go`):
-
-```go
-package cache
-
-import (
-	"context"
-	"errors"
-	"fmt"
-	"time"
-
-	"github.com/cristiano-pacheco/bricks/pkg/redis"
-	"github.com/cristiano-pacheco/pingo/internal/modules/identity/ports"
-	"github.com/cristiano-pacheco/pingo/internal/modules/identity/proto"
-	"google.golang.org/protobuf/proto"
-)
-
-const (
-	profileCacheKeyPrefix = "user_profile:"
-	profileCacheTTLMin    = 12 * time.Hour
-	profileCacheTTLMax    = 24 * time.Hour
-)
-
-type UserProfileCache struct {
-	redisClient redis.UniversalClient
-}
-
-var _ ports.UserProfileCache = (*UserProfileCache)(nil)
-
-func NewUserProfileCache(redisClient redis.UniversalClient) *UserProfileCache {
-	return &UserProfileCache{
-		redisClient: redisClient,
-	}
-}
-
-func (c *UserProfileCache) Set(userID uint64, profile *proto.UserProfile) error {
-	key := c.buildKey(userID)
-	ctx := context.Background()
-
-	data, err := proto.Marshal(profile)
-	if err != nil {
-		return fmt.Errorf("failed to marshal profile: %w", err)
-	}
-
-	ttl := c.calculateTTL()
-	return c.redisClient.Set(ctx, key, data, ttl).Err()
-}
-
-func (c *UserProfileCache) calculateTTL() time.Duration {
-	min := profileCacheTTLMin.Milliseconds()
-	max := profileCacheTTLMax.Milliseconds()
-	randomMs := min + rand.Int63n(max-min+1)
-	return time.Duration(randomMs) * time.Millisecond
-}
-
-func (c *UserProfileCache) Get(userID uint64) (*proto.UserProfile, error) {
-	key := c.buildKey(userID)
-	ctx := context.Background()
-
-	result := c.redisClient.Get(ctx, key)
-	if err := result.Err(); err != nil {
-		if errors.Is(err, redisClient.Nil) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	data, err := result.Bytes()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get bytes: %w", err)
-	}
-
-	var profile proto.UserProfile
-	if err := proto.Unmarshal(data, &profile); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal profile: %w", err)
-	}
-
-	return &profile, nil
-}
-
-func (c *UserProfileCache) Delete(userID uint64) error {
-	key := c.buildKey(userID)
-	ctx := context.Background()
-
-	return c.redisClient.Del(ctx, key).Err()
-}
-
-func (c *UserProfileCache) buildKey(userID uint64) string {
-	return fmt.Sprintf("%s%d", profileCacheKeyPrefix, userID)
-}
-```
-
-Fx wiring (`module.go`):
-
-```go
-fx.Provide(
-	fx.Annotate(
-		cache.NewUserProfileCache,
-		fx.As(new(ports.UserProfileCache)),
+		cache.NewOAuthStateCache,
+		fx.As(new(ports.OAuthStateCache)),
 	),
 ),
 ```
 
 ## Critical Rules
 
-1. **Two files**: Port interface in `ports/`, implementation in `cache/`
-2. **Interface in ports**: Interface lives in `ports/<name>_cache.go`
-3. **Interface assertion**: Add `var _ ports.XxxCache = (*XxxCache)(nil)` below the struct
-4. **Constructor**: MUST return pointer `*XxxCache`
-5. **Constants**: Define `cacheKeyPrefix`, `cacheTTLMin`, and `cacheTTLMax` at package level
-6. **Randomized TTL**: MUST use `calculateTTL()` helper to prevent cache stampede
-7. **Key builder**: Always use a `buildKey()` helper method
-8. **Missing keys**: Return zero value + nil error, not an error (use `errors.Is(err, redisClient.Nil)`)
-9. **Context**: Use `context.Background()` or accept `context.Context` parameter
-10. **No comments**: Do not add redundant comments above methods
-11. **Add detailed comment on interfaces**: Provide comprehensive comments on the port interfaces to describe their purpose and usage
-12. **Redis client type**: Use `redis.UniversalClient` interface
-13. **No TTL parameters**: TTL is internal to cache, never exposed in interface methods
+1. **Two files**: Port in `ports/`, implementation in `cache/`
+2. **Interface assertion**: `var _ ports.XxxCache = (*XxxCache)(nil)` below the struct
+3. **Constructor**: Returns `*XxxCache` (pointer)
+4. **Context**: Always accept `ctx context.Context` as first parameter — never use `context.Background()` internally
+5. **Redis nil**: Import `redislib "github.com/redis/go-redis/v9"` and use `errors.Is(err, redislib.Nil)`
+6. **Fixed vs randomized TTL**: Use fixed TTL for short-lived data; use `calculateTTL()` only for long-lived bulk data to prevent cache stampede
+7. **buildKey**: Always use a `buildKey()` helper; use `+` concatenation for string IDs, `fmt.Sprintf` for numeric IDs
+8. **Missing keys**: Return zero value + `nil`, or a domain error if the key is expected to exist
+9. **Data types in dto**: Define data structs in the `dto` package, never in `ports`
+10. **No comments on methods**: Only add detailed doc comments on port interfaces
+11. **Redis client type**: `redis.UniversalClient` from `github.com/cristiano-pacheco/bricks/pkg/redis`
+12. **No TTL in interface**: TTL is internal, never exposed as a method parameter
+13. **Error messages**: Use short format `"action noun: %w"` (e.g. `"marshal oauth state: %w"`)
 
 ## Workflow
 
 1. Create port interface in `ports/<name>_cache.go`
 2. Create cache implementation in `cache/<name>_cache.go`
-3. Add Fx wiring to module's `module.go`
-4. Run `make lint` to verify
-5. Run `make nilaway` for static analysis
+3. Add Fx wiring to `module.go`
+4. Run `make lint`
+5. Run `make nilaway`
