@@ -1,13 +1,11 @@
 ---
 name: go-chi-router
-description: Generate Chi router implementations following GO modular architechture conventions (Chi router from bricks package, Fx DI with chi.Route interface, REST endpoints). Use when creating HTTP route registration for resources in internal/modules/<module>/http/chi/router/ including REST routes (GET, POST, PUT, DELETE) for CRUD operations, custom endpoints, versioned APIs, and route groups.
+description: Generate Chi router implementations following Go modular architecture conventions (Chi router from bricks package, Fx DI with chi.Route interface, REST endpoints). Always use this skill when creating or modifying HTTP route registration in internal/modules/<module>/http/chi/router/, including any new router file, CRUD routes (GET, POST, PUT, DELETE), custom action endpoints, versioned APIs, route groups with middleware, or wiring routers into a module's fx.go.
 ---
 
 # Go Chi Router
 
 Generate Chi router implementations for Go backend HTTP transport layer.
-
-## Router File Structure
 
 **Location**: `internal/modules/<module>/http/chi/router/<resource>_router.go`
 
@@ -32,69 +30,52 @@ func NewResourceRouter(h *handler.ResourceHandler) *ResourceRouter {
 func (r *ResourceRouter) Setup(server *chi.Server) {
 	router := server.Router()
 	router.Get("/api/v1/resources", r.handler.ListResources)
-	router.Get("/api/v1/resources/:id", r.handler.GetResource)
+	router.Get("/api/v1/resources/{id}", r.handler.GetResource)
 	router.Post("/api/v1/resources", r.handler.CreateResource)
-	router.Put("/api/v1/resources/:id", r.handler.UpdateResource)
-	router.Delete("/api/v1/resources/:id", r.handler.DeleteResource)
+	router.Put("/api/v1/resources/{id}", r.handler.UpdateResource)
+	router.Delete("/api/v1/resources/{id}", r.handler.DeleteResource)
 }
 ```
 
 ## Router Patterns
 
-### Basic CRUD Routes
-
-```go
-func (r *ResourceRouter) Setup(server *chi.Server) {
-	router := server.Router()
-	router.Get("/api/v1/resources", r.handler.ListResources)
-	router.Get("/api/v1/resources/:id", r.handler.GetResource)
-	router.Post("/api/v1/resources", r.handler.CreateResource)
-	router.Put("/api/v1/resources/:id", r.handler.UpdateResource)
-	router.Delete("/api/v1/resources/:id", r.handler.DeleteResource)
-}
-```
-
 ### Custom Endpoints
 
+Use `POST` with a verb suffix for non-CRUD state transitions. Use nested paths for sub-resources.
+
 ```go
 func (r *ResourceRouter) Setup(server *chi.Server) {
 	router := server.Router()
-	
-	// Standard CRUD
 	router.Get("/api/v1/resources", r.handler.ListResources)
 	router.Post("/api/v1/resources", r.handler.CreateResource)
-	
-	// Custom actions
-	router.Post("/api/v1/resources/:id/activate", r.handler.ActivateResource)
-	router.Post("/api/v1/resources/:id/deactivate", r.handler.DeactivateResource)
-	
-	// Nested resources
-	router.Get("/api/v1/resources/:id/items", r.handler.ListResourceItems)
-	router.Post("/api/v1/resources/:id/items", r.handler.AddResourceItem)
+	router.Post("/api/v1/resources/{id}/activate", r.handler.ActivateResource)
+	router.Post("/api/v1/resources/{id}/deactivate", r.handler.DeactivateResource)
+	router.Get("/api/v1/resources/{id}/items", r.handler.ListResourceItems)
+	router.Post("/api/v1/resources/{id}/items", r.handler.AddResourceItem)
 }
 ```
 
 ### Route Groups (with middleware)
 
+Use `router.Group` to scope middleware to a subset of routes without affecting others.
+
 ```go
 func (r *ResourceRouter) Setup(server *chi.Server) {
 	router := server.Router()
-	
-	// Public routes
 	router.Get("/api/v1/resources", r.handler.ListResources)
-	router.Get("/api/v1/resources/:id", r.handler.GetResource)
-	
-	// Protected routes (if auth middleware needed)
+	router.Get("/api/v1/resources/{id}", r.handler.GetResource)
 	router.Group(func(r chi.Router) {
-		// r.Use(middleware.Auth) // Example if auth middleware exists
+		r.Use(middleware.Auth)
 		r.Post("/api/v1/resources", r.handler.CreateResource)
-		r.Put("/api/v1/resources/:id", r.handler.UpdateResource)
-		r.Delete("/api/v1/resources/:id", r.handler.DeleteResource)
+		r.Put("/api/v1/resources/{id}", r.handler.UpdateResource)
+		r.Delete("/api/v1/resources/{id}", r.handler.DeleteResource)
 	})
 }
 ```
 
 ### Multiple Handlers
+
+When a router logically owns routes across two related resources (e.g., a resource and its items), inject both handlers via the constructor.
 
 ```go
 type ResourceRouter struct {
@@ -114,12 +95,8 @@ func NewResourceRouter(
 
 func (r *ResourceRouter) Setup(server *chi.Server) {
 	router := server.Router()
-	
-	// Resource routes
 	router.Get("/api/v1/resources", r.resourceHandler.ListResources)
 	router.Post("/api/v1/resources", r.resourceHandler.CreateResource)
-	
-	// Item routes (related resource)
 	router.Get("/api/v1/items", r.itemHandler.ListItems)
 	router.Post("/api/v1/items", r.itemHandler.CreateItem)
 }
@@ -127,7 +104,7 @@ func (r *ResourceRouter) Setup(server *chi.Server) {
 
 ## Fx Wiring
 
-**Add to `internal/modules/<module>/fx.go`**:
+Add to `internal/modules/<module>/fx.go`. The `fx.As(new(chi.Route))` and `fx.ResultTags` are required — they register the router into the `routes` group so the HTTP server discovers it automatically.
 
 ```go
 fx.Provide(
@@ -139,7 +116,7 @@ fx.Provide(
 ),
 ```
 
-**Multiple routers in same module**:
+**Multiple routers in the same module**:
 
 ```go
 fx.Provide(
@@ -156,67 +133,49 @@ fx.Provide(
 ),
 ```
 
-## HTTP Methods & Semantics
-
-Follow REST conventions:
-- `GET`: Retrieve resources (list or single)
-- `POST`: Create new resources
-- `PUT`: Update existing resources (full update)
-- `PATCH`: Partial update (if needed)
-- `DELETE`: Remove resources
-
 ## URL Path Conventions
 
 - **Version prefix**: `/api/v1/`
 - **Resource names**: Plural nouns (`/resources`, `/contacts`, `/monitors`)
-- **Resource ID**: Use `:id` param (`/resources/:id`)
-- **Nested resources**: `/resources/:id/items`
-- **Actions**: Use verbs for non-CRUD (`/resources/:id/activate`)
+- **Resource ID**: `{id}` path param (`/resources/{id}`)
+- **Nested resources**: `/resources/{id}/items`
+- **Nested with two IDs**: `/resources/{resourceId}/items/{itemId}`
+- **Actions**: Verb suffix for non-CRUD (`/resources/{id}/activate`)
+- **Bulk**: `/resources/bulk` with appropriate HTTP method
 
-## Critical Rules
+## HTTP Methods
 
-1. **Struct**: Holds handler(s) only
-2. **Constructor**: MUST return pointer `*ResourceRouter`
-3. **Setup method**: MUST be named `Setup` and take `*chi.Server`
-4. **Router access**: Get router via `server.Router()`
-5. **Route format**: Always start with `/api/v1/` prefix
-6. **Resource naming**: Use plural nouns for resources
-7. **Handler naming**: Match handler method names to actions (e.g., `ListResources`, `CreateResource`)
-8. **Fx wiring**: MUST use `fx.As(new(chi.Route))` and `fx.ResultTags(\`group:"routes"\`)`
-9. **No comments**: Do not add redundant comments above methods
-10. **Imports**: Only import `bricks/pkg/http/server/chi` and handler package
-11. **Dependencies**: Handlers are injected via constructor
-12. **Validation**: Run `make lint` after generation
+- `GET`: Retrieve (list or single)
+- `POST`: Create, or trigger an action
+- `PUT`: Full update
+- `PATCH`: Partial update
+- `DELETE`: Remove
 
-## Router Naming
+## Naming Conventions
 
 - **Struct**: `<Resource>Router` (PascalCase)
 - **Constructor**: `New<Resource>Router`
 - **File**: `<resource>_router.go` (snake_case)
+- **Handler methods**: Match action — `ListResources`, `CreateResource`, `ActivateResource`
+
+## Rules
+
+1. The struct holds only handler pointer(s) — no other state
+2. Constructor returns a pointer (`*ResourceRouter`)
+3. `Setup` method signature is exactly `Setup(server *chi.Server)` — never deviate
+4. Always call `server.Router()` inside `Setup` to get the chi router
+5. Every route must start with `/api/v1/`
+6. Resource names in paths are plural nouns
+7. Fx wiring requires both `fx.As(new(chi.Route))` and `fx.ResultTags(\`group:"routes"\`)`
+8. Imports: only `bricks/pkg/http/server/chi` and the handler package (plus middleware if using route groups)
+9. No comments in the file — the code is self-describing
+10. Run `make lint` after generating
 
 ## Workflow
 
-1. Create router file in `internal/modules/<module>/http/chi/router/<resource>_router.go`
-2. Define struct with handler dependency
+1. Create `internal/modules/<module>/http/chi/router/<resource>_router.go`
+2. Define struct with handler field(s)
 3. Implement constructor
-4. Implement `Setup(server *chi.Server)` method with routes
-5. Add Fx wiring to module's `fx.go`
-6. Run `make lint` to verify
-
-## Common Route Patterns
-
-### List with filters
-```go
-router.Get("/api/v1/resources", r.handler.ListResources) // query params in handler
-```
-
-### Nested resource access
-```go
-router.Get("/api/v1/resources/:resourceId/items/:itemId", r.handler.GetResourceItem)
-```
-
-### Bulk operations
-```go
-router.Post("/api/v1/resources/bulk", r.handler.BulkCreateResources)
-router.Delete("/api/v1/resources/bulk", r.handler.BulkDeleteResources)
-```
+4. Implement `Setup(server *chi.Server)` with all routes
+5. Add Fx wiring to `internal/modules/<module>/fx.go`
+6. Run `make lint` and `make nilaway` to ensure code quality and no nil pointer issues
