@@ -32,7 +32,7 @@ type PasswordValidator interface {
 
 The validator implementation file follows this order:
 
-1. **Package imports**
+1. **Package declaration and imports**
 2. **Constants** - validation rules, thresholds, limits
 3. **Struct definition** - the validator implementation struct
 4. **Interface assertion** - compile-time check with `var _ ports.XxxValidator = (*XxxValidator)(nil)`
@@ -48,24 +48,24 @@ import (
 	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/ports"
 )
 
-// 1. Constants
+// 2. Constants
 const (
 	minLength = 8
 	maxLength = 128
 )
 
-// 2. Struct definition
+// 3. Struct definition
 type PasswordValidator struct{}
 
-// 3. Interface assertion
+// 4. Interface assertion
 var _ ports.PasswordValidator = (*PasswordValidator)(nil)
 
-// 4. Constructor
+// 5. Constructor
 func NewPasswordValidator() *PasswordValidator {
 	return &PasswordValidator{}
 }
 
-// 5. Methods
+// 6. Methods
 func (v *PasswordValidator) Validate(password string) error {
 	// validation logic
 	return nil
@@ -92,7 +92,16 @@ type PasswordValidator interface {
 Most validators are stateless utilities with no external dependencies.
 
 ```go
+package validator
+
+import (
+	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/errs"
+	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/ports"
+)
+
 type EmailValidator struct{}
+
+var _ ports.EmailValidator = (*EmailValidator)(nil)
 
 func NewEmailValidator() *EmailValidator {
 	return &EmailValidator{}
@@ -109,11 +118,22 @@ func (v *EmailValidator) Validate(email string) error {
 Use when validation requires external data or configuration.
 
 ```go
+package validator
+
+import (
+	"context"
+
+	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/errs"
+	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/ports"
+)
+
 type UsernameValidator struct {
 	userRepo ports.UserRepository
 	minLen   int
 	maxLen   int
 }
+
+var _ ports.UsernameValidator = (*UsernameValidator)(nil)
 
 func NewUsernameValidator(
 	userRepo ports.UserRepository,
@@ -152,6 +172,9 @@ Use when validation involves multiple related fields.
 Port interface:
 
 ```go
+package ports
+
+// RegistrationValidator validates all fields for user registration.
 type RegistrationValidator interface {
 	ValidateEmail(email string) error
 	ValidatePassword(password string) error
@@ -162,7 +185,16 @@ type RegistrationValidator interface {
 Implementation:
 
 ```go
+package validator
+
+import (
+	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/errs"
+	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/ports"
+)
+
 type RegistrationValidator struct{}
+
+var _ ports.RegistrationValidator = (*RegistrationValidator)(nil)
 
 func NewRegistrationValidator() *RegistrationValidator {
 	return &RegistrationValidator{}
@@ -242,6 +274,7 @@ func (v *UsernameValidator) Validate(ctx context.Context, username string) error
 
 Add to `internal/modules/<module>/fx.go`:
 
+**Stateless validator:**
 ```go
 fx.Provide(
 	fx.Annotate(
@@ -250,6 +283,18 @@ fx.Provide(
 	),
 ),
 ```
+
+**Stateful validator with dependencies:**
+```go
+fx.Provide(
+	fx.Annotate(
+		validator.NewUsernameValidator,
+		fx.As(new(ports.UsernameValidator)),
+	),
+),
+```
+
+The stateful validator's dependencies (e.g., `ports.UserRepository`) are automatically injected by Fx. Constructor parameters that are primitive types (e.g., `minLen`, `maxLen`) should be provided via configuration or fx.Supply.
 
 ## Dependencies
 
