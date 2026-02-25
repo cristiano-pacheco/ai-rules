@@ -1,11 +1,11 @@
 ---
 name: go-enum
-description: Generate Go enums following GO modular architechture conventions (string-based enums with validation, constructor, and String method). Use when creating type-safe string enumerations in internal/modules/<module>/enum/ or when user asks to create an enum, add an enum type, or define enum constants.
+description: Generate Go enums following GO modular architecture conventions (string-based enums with validation, constructor, and String method). Use when creating type-safe string enumerations in internal/modules/<module>/enum/ or when user asks to create an enum, add an enum type, or define enum constants.
 ---
 
 # Go Enum
 
-Generate type-safe Go enums following GO modular architechture conventions.
+Generate type-safe Go enums following GO modular architecture conventions.
 
 ## Pattern
 
@@ -19,9 +19,9 @@ Each enum file contains:
 5. `String()` method
 6. Private validation function (`validate<Type>`)
 
-## Example Structure
+## Example — Enum File
 
-For an enum named "ContactType" with values "email" and "webhook":
+For an enum named "ContactType" with values "email" and "webhook" in the `monitor` module:
 
 ```go
 package enum
@@ -61,55 +61,73 @@ func validateContactType(contactType string) error {
 }
 ```
 
+## Example — Error Entry
+
+Errors live in `internal/modules/<module>/errs/errs.go` and use `errs.New` from the bricks package:
+
+```go
+package errs
+
+import (
+	"net/http"
+
+	"github.com/cristiano-pacheco/bricks/pkg/errs"
+)
+
+var (
+	ErrInvalidContactType = errs.New("MONITOR_01", "Invalid contact type", http.StatusBadRequest, nil)
+)
+```
+
+`errs.New` signature: `errs.New(code string, message string, httpStatus int, metadata any)`
+
+- **code**: `<MODULE>_<NN>` — uppercase module prefix, two-digit sequential number (e.g., `MONITOR_01`, `IDENTITY_25`). Read the existing errs.go to find the next available number.
+- **message**: Sentence case, starting with uppercase (e.g., `"Invalid contact type"`). Keep it short and user-safe.
+- **httpStatus**: Use `http.StatusBadRequest` for invalid enum values.
+- **metadata**: Always `nil` for enum validation errors.
+
 ## Generation Steps
 
 1. **Identify enum details**:
-   - Enum name (e.g., "ContactType", "Status", "Priority")
-   - Possible values (e.g., ["email", "webhook"], ["active", "inactive"])
-   - Target module (e.g., "monitor", "auth")
+   - Enum name (e.g., `ContactType`, `UserStatus`, `PKCEMethod`)
+   - Possible values (e.g., `["email", "webhook"]`, `["active", "inactive"]`)
+   - Target module (e.g., `monitor`, `identity`)
 
-2. **Create error constant**:
-   - Add error to `internal/modules/<module>/errs/errs.go`
-   - Format: `ErrInvalid<EnumName> = errors.New("invalid <enum_name>")`
-   - Example: `ErrInvalidContactType = errors.New("invalid contact type")`
-   - Add translation entry for the new error in `locales/en.json`
-   - If additional locale files exist (e.g., `locales/pt_BR.json`), add the same translation key there too
+2. **Add error to `internal/modules/<module>/errs/errs.go`**:
+   - Read the file to find the next available sequential error code number
+   - Add: `ErrInvalid<EnumName> = errs.New("<MODULE>_<NN>", "Invalid <enum name>", http.StatusBadRequest, nil)`
+   - Ensure `net/http` and `github.com/cristiano-pacheco/bricks/pkg/errs` are imported
 
-3. **Generate enum file**:
-   - Filename: `<snake_case_enum_name>_enum.go`
-   - Package: `enum`
-   - Import module errs package
-   - Follow structure above with all components
+3. **Create the enum file** at `internal/modules/<module>/enum/<snake_case_name>_enum.go`:
+   - Import: `github.com/cristiano-pacheco/pingo/internal/modules/<module>/errs`
+   - Follow the structure above with all six components
 
 ## Naming Conventions
 
-- **File**: `<snake_case>_enum.go` (e.g., `contact_type_enum.go`)
-- **Constants**: `<EnumName><Value>` (e.g., `ContactTypeEmail`)
-- **Validation map**: `valid<EnumName>s` (lowercase, plural)
+- **File**: `<snake_case>_enum.go` (e.g., `contact_type_enum.go`, `user_status_enum.go`)
+- **Constants**: `<EnumName><Value>` (e.g., `ContactTypeEmail`, `UserStatusActive`)
+- **Validation map**: `valid<EnumName>s` (unexported, plural, e.g., `validContactTypes`)
 - **Struct**: `<EnumName>Enum` (e.g., `ContactTypeEnum`)
-- **Constructor**: `New<EnumName>Enum`
-- **Validator**: `validate<EnumName>` (private, singular, takes string param)
-- **Error**: `ErrInvalid<EnumName>` in module's `errs` package
+- **Constructor**: `New<EnumName>Enum(value string) (<EnumName>Enum, error)`
+- **Validator**: `validate<EnumName>(value string) error` (unexported, singular)
+- **Error**: `ErrInvalid<EnumName>` in `internal/modules/<module>/errs/errs.go`
 
 ## Implementation Checklist
 
-- [ ] Add `ErrInvalid<EnumName>` to `internal/modules/<module>/errs/errors.go`
-- [ ] Add translation for the new error in `locales/en.json`
-- [ ] Add the same translation key in every other existing locale file (e.g., `locales/pt_BR.json`)
-- [ ] Create `internal/modules/<module>/enum/<name>_enum.go`
-- [ ] Define all constant values
-- [ ] Create validation map with all values
-- [ ] Define enum struct type (private `value string` field)
-- [ ] Implement `New<EnumName>Enum(value string) (<EnumName>Enum, error)` constructor
+- [ ] Read `internal/modules/<module>/errs/errs.go` to find the next sequential error code
+- [ ] Add `ErrInvalid<EnumName>` to `internal/modules/<module>/errs/errs.go`
+- [ ] Create `internal/modules/<module>/enum/<snake_case_name>_enum.go`
+- [ ] Define all string constants
+- [ ] Create validation map (`map[string]struct{}`) with all constants
+- [ ] Define enum struct with private `value string` field
+- [ ] Implement constructor `New<EnumName>Enum(value string) (<EnumName>Enum, error)`
 - [ ] Implement `String() string` method
 - [ ] Implement `validate<EnumName>(value string) error` private function
 
 ## Usage Pattern
 
-Other code creates enums via the constructor (validation happens internally):
-
 ```go
-// Create typed enum (validation is automatic)
+// Validate and wrap an input value
 contactType, err := enum.NewContactTypeEnum(input)
 if err != nil {
     return err
@@ -120,6 +138,6 @@ fmt.Println(contactType.String()) // "email"
 const defaultType = enum.ContactTypeEmail
 ```
 
-## Critical Rules
+When finished the enum implementation, ensure to test the constructor with valid and invalid values to confirm validation works as expected.
 
-- Every new custom error created for enum validation must include locale entries in `locales/en.json` and all other existing locale files
+Run `make lint` and `make nilaway` to ensure code quality and no nil pointer issues.
