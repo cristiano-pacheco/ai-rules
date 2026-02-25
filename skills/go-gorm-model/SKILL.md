@@ -1,6 +1,6 @@
 ---
 name: go-gorm-model
-description: Generate Go GORM models following catzi modular architecture conventions. Use when creating or updating persistence models in internal/modules/<module>/model/, including table mapping, nullable pointer types, index tags, PostgreSQL-specific types, and timestamps. Always use this skill when asked to create a model, add a GORM struct, map a database table, or generate model files.
+description: Generate Go GORM models following Go modular architecture conventions. Use when creating or updating persistence models in internal/modules/<module>/model/, including table mapping, nullable pointer types, index tags, PostgreSQL-specific types, and timestamps. Always use this skill when asked to create a model, add a GORM struct, map a database table, or generate model files.
 ---
 
 # Go GORM Model
