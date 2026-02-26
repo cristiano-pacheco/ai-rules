@@ -78,8 +78,8 @@ func NewEntityRepository(db *database.PingoDB) *EntityRepository {
 
 ```go
 func (r *EntityRepository) FindAll(ctx context.Context) ([]model.EntityModel, error) {
-	ctx, otelSpan := trace.Span(ctx, "EntityRepository.FindAll")
-	defer otelSpan.End()
+	ctx, span := trace.Span(ctx, "EntityRepository.FindAll")
+	defer span.End()
 
 	entities, err := gorm.G[model.EntityModel](r.DB).Find(ctx)
 	if err != nil {
@@ -93,8 +93,8 @@ func (r *EntityRepository) FindAll(ctx context.Context) ([]model.EntityModel, er
 
 ```go
 func (r *EntityRepository) FindAll(ctx context.Context, page, pageSize int) ([]model.EntityModel, int64, error) {
-	ctx, otelSpan := trace.Span(ctx, "EntityRepository.FindAll")
-	defer otelSpan.End()
+	ctx, span := trace.Span(ctx, "EntityRepository.FindAll")
+	defer span.End()
 
 	offset := (page - 1) * pageSize
 
@@ -119,8 +119,8 @@ func (r *EntityRepository) FindAll(ctx context.Context, page, pageSize int) ([]m
 
 ```go
 func (r *EntityRepository) FindByID(ctx context.Context, id uint64) (model.EntityModel, error) {
-	ctx, otelSpan := trace.Span(ctx, "EntityRepository.FindByID")
-	defer otelSpan.End()
+	ctx, span := trace.Span(ctx, "EntityRepository.FindByID")
+	defer span.End()
 
 	entity, err := gorm.G[model.EntityModel](r.DB).
 		Where("id = ?", id).
@@ -140,8 +140,8 @@ func (r *EntityRepository) FindByID(ctx context.Context, id uint64) (model.Entit
 
 ```go
 func (r *EntityRepository) Create(ctx context.Context, entity model.EntityModel) (model.EntityModel, error) {
-	ctx, otelSpan := trace.Span(ctx, "EntityRepository.Create")
-	defer otelSpan.End()
+	ctx, span := trace.Span(ctx, "EntityRepository.Create")
+	defer span.End()
 
 	err := gorm.G[model.EntityModel](r.DB).Create(ctx, &entity)
 	return entity, err
@@ -167,8 +167,8 @@ func (r *EntityRepository) Update(ctx context.Context, entity model.EntityModel)
 
 ```go
 func (r *EntityRepository) Delete(ctx context.Context, id uint64) error {
-	ctx, otelSpan := trace.Span(ctx, "EntityRepository.Delete")
-	defer otelSpan.End()
+	ctx, span := trace.Span(ctx, "EntityRepository.Delete")
+	defer span.End()
 
 	rowsAffected, err := gorm.G[model.EntityModel](r.DB).
 		Where("id = ?", id).
@@ -187,8 +187,8 @@ func (r *EntityRepository) Delete(ctx context.Context, id uint64) error {
 
 ```go
 func (r *EntityRepository) FindByName(ctx context.Context, name string) (model.EntityModel, error) {
-	ctx, otelSpan := trace.Span(ctx, "EntityRepository.FindByName")
-	defer otelSpan.End()
+	ctx, span := trace.Span(ctx, "EntityRepository.FindByName")
+	defer span.End()
 
 	entity, err := gorm.G[model.EntityModel](r.DB).
 		Where("name = ?", name).
@@ -208,8 +208,8 @@ func (r *EntityRepository) FindByName(ctx context.Context, name string) (model.E
 
 ```go
 func (r *EntityRepository) AssignRelated(ctx context.Context, entityID uint64, relatedIDs []uint64) error {
-	ctx, otelSpan := trace.Span(ctx, "EntityRepository.AssignRelated")
-	defer otelSpan.End()
+	ctx, span := trace.Span(ctx, "EntityRepository.AssignRelated")
+	defer span.End()
 
 	tx := r.DB.Begin()
 
