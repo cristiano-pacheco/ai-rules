@@ -55,6 +55,7 @@ import (
 	"github.com/cristiano-pacheco/pingo/internal/modules/<module>/dto"
 )
 
+// DoSomethingService <describe what this service does and when to use it>.
 type DoSomethingService interface {
 	Execute(ctx context.Context, input dto.DoSomethingInput) error
 }
@@ -171,6 +172,21 @@ Span name format: `"StructName.MethodName"`
 - Implementation struct: `XxxService` (in `service` package, same name — disambiguated by package)
 - Constructor: `NewXxxService`, returns a pointer of the struct implementation
 
+## Logger Parameter Naming
+
+Always name the logger parameter `logger` in constructors — never `l` or `log`:
+
+```go
+// Correct
+func NewDoSomethingService(logger logger.Logger) *DoSomethingService {
+	return &DoSomethingService{logger: logger}
+}
+
+// Wrong — never use 'l' or 'log' as the parameter name
+func NewDoSomethingService(l logger.Logger) *DoSomethingService { ... }
+func NewDoSomethingService(log logger.Logger) *DoSomethingService { ... }
+```
+
 ## Fx Wiring
 
 Add to `internal/modules/<module>/fx.go`:
@@ -197,7 +213,8 @@ Services depend on interfaces only. Common dependencies:
 
 - Always use the Bricks logger package: `github.com/cristiano-pacheco/bricks/pkg/logger`
 - Every time a service method returns an error, log it immediately before returning
-- Preferred pattern:
+- Any service that can return an error MUST have a `logger logger.Logger` field
+- **Canonical pattern** — always use `s.logger.Error` with `logger.Error(err)` as a field:
 
 ```go
 if err != nil {
@@ -206,20 +223,64 @@ if err != nil {
 }
 ```
 
+- **Forbidden** — never use `WithError`:
+
+```go
+// Wrong — never use this form
+s.logger.WithError(err).Error("message")
+```
+
 ## Critical Rules
 
-1. **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
-2. **Three files**: DTOs in `dto/`, port interface in `ports/`, implementation in `service/`
-2. **Interface in ports**: Interface lives in `ports/<name>_service.go`
-3. **DTOs in dto**: Input/output structs live in `dto/<name>_dto.go`
-4. **Interface assertion**: Add `var _ ports.XxxService = (*XxxService)(nil)` below the struct
-5. **Constructor**: MUST return pointer `*XxxService`
-6. **Tracing**: Every I/O method MUST use `trace.Span` with `defer span.End()`
-7. **Context**: Methods performing I/O accept `context.Context` as first parameter
-8. **No comments on implementations**: Do not add redundant comments above methods in the implementations
-9. **Add detailed comment on interfaces**: Provide comprehensive comments on the port interfaces to describe their purpose and usage
-10. **Dependencies**: Always depend on port interfaces, never concrete implementations
-11. **Error logging**: Every returned error must be logged first using Bricks logger (`s.logger.Error(..., logger.Error(err))`)
+1. **No standalone functions**: When a file contains a struct with methods, ALL helper logic must be private methods on the struct — never standalone package-level functions. This applies even to tiny utilities. See [Anti-pattern: Standalone functions](#anti-pattern-standalone-functions).
+2. **No duplicate helpers across files**: Within the same `service` package, never define two standalone functions (or private methods on different structs) that do the same thing under different names. If two services need the same utility, each should have its own private method with the same name on their respective structs.
+3. **Three files**: DTOs in `dto/`, port interface in `ports/`, implementation in `service/`
+4. **Interface in ports**: Interface lives in `ports/<name>_service.go`
+5. **DTOs in dto**: Input/output structs live in `dto/<name>_dto.go`
+6. **Interface assertion**: Add `var _ ports.XxxService = (*XxxService)(nil)` below the struct
+7. **Constructor returns pointer**: Normal constructor returns `*XxxService`. The only exception is when initialization requires fallible I/O (e.g., parsing a key, creating a directory, connecting to a resource at startup) — then return `(*XxxService, error)`.
+8. **Tracing**: Every I/O method MUST use `trace.Span` with `defer span.End()`
+9. **Context**: Methods performing I/O accept `context.Context` as first parameter
+10. **No comments on implementations**: Do not add comments above the struct type, the constructor, or any method (public or private) in implementation files. Comments belong only on port interfaces.
+11. **Add detailed comment on interfaces**: Provide comprehensive comments on the port interfaces to describe their purpose and usage
+12. **Dependencies**: Always depend on port interfaces, never concrete implementations
+13. **Error logging**: Every returned error must be logged first using `s.logger.Error(..., logger.Error(err))` — never `WithError`
+14. **Logger field required**: Any service that can return an error must have a `logger logger.Logger` field and use it before returning errors
+
+## Anti-pattern: Standalone functions
+
+Standalone functions at the package level are forbidden when a struct with methods exists in the file. They pollute the package namespace, can collide with helpers in other service files, and fragment logic that belongs to the struct.
+
+**Wrong** — standalone helper alongside struct methods:
+
+```go
+type SlugService struct{}
+
+func (s *SlugService) Generate(_ context.Context, name string) string {
+	return normalizeWithoutDiacritics(strings.ToLower(name)) // calls standalone fn
+}
+
+// Wrong: this is a standalone function, not a method
+func normalizeWithoutDiacritics(input string) string {
+	// ...
+}
+```
+
+**Correct** — private method on the struct:
+
+```go
+type SlugService struct{}
+
+func (s *SlugService) Generate(_ context.Context, name string) string {
+	return s.normalizeWithoutDiacritics(strings.ToLower(name)) // calls private method
+}
+
+func (s *SlugService) normalizeWithoutDiacritics(input string) string {
+	// ...
+}
+```
+
+This rule applies to ALL helpers — string utilities, crypto helpers, normalizers, formatters — regardless of how small or "pure" they are.
 
 ## Workflow
 
