@@ -17,6 +17,8 @@ Use:
 - struct name: `<Operation>UseCase`
 - method name: `Execute`
 
+**Only `_usecase.go` files belong in this package.** Mappers, utility helpers, and standalone functions do not belong here — put them in `mapper/`, `service/`, or the appropriate package. Never add package-level variables; all dependencies must be injected via the constructor.
+
 ## Naming (CRITICAL)
 
 Apply consistent naming for every use case.
@@ -193,6 +195,275 @@ for i, item := range items {
 return output, nil
 ```
 
+---
+
+## Common Mistakes to Avoid
+
+These patterns were found in production code and must never appear in a usecase.
+
+---
+
+### 1. Non-usecase files in the usecase package
+
+Only `_usecase.go` files belong here. Never place mappers, helpers, or utility types in `usecase/`.
+
+```go
+// WRONG — a mapper type living in usecase/product_attributes_mapper.go
+package usecase
+
+type ProductAttributesMapper struct{}
+
+var productAttributesMapper = NewProductAttributesMapper() // also a global!
+```
+
+```go
+// RIGHT — mapper lives in mapper/, injected as a port
+// internal/modules/catalog/mapper/product_attributes_mapper.go
+```
+
+---
+
+### 2. Package-level global variables
+
+Never declare `var` at the package level. All dependencies must be injected.
+
+```go
+// WRONG
+var productAttributesMapper = NewProductAttributesMapper()
+```
+
+```go
+// RIGHT — inject via constructor
+type ProductCreateUseCase struct {
+	attributesMapper ports.ProductAttributesMapper
+}
+```
+
+---
+
+### 3. ORM or infrastructure imports in a usecase
+
+Usecases must only import `ports.*` interfaces and domain packages. If an error originates from GORM, the repository must wrap it into a domain error before it reaches the usecase.
+
+```go
+// WRONG — gorm leaks into usecase
+import "gorm.io/gorm"
+
+if errors.Is(err, gorm.ErrDuplicatedKey) { ... }
+```
+
+```go
+// RIGHT — repository wraps the error; usecase checks a domain error
+import brickserrs "github.com/cristiano-pacheco/bricks/pkg/errs"
+
+if errors.Is(err, brickserrs.ErrAlreadyExists) { ... }
+```
+
+Same rule applies to: `os`, `sync`, `database/sql`, `net/http` (for status codes), and any driver-specific package.
+
+---
+
+### 4. Hardcoded magic strings and IDs as business rules
+
+Business rules must not depend on raw string literals or database row IDs baked into code. Use enums, constants from a dedicated `constants/` package, or config.
+
+```go
+// WRONG — magic string and magic ID in business logic
+const uncategorizedCategoryID uint64 = 1
+
+switch categorySlug {
+case "kits-para-banheiro":
+    ...
+}
+```
+
+```go
+// RIGHT — use an enum or a constant package
+import "github.com/cristiano-pacheco/catzi/internal/modules/catalog/constants"
+
+if input.ID == constants.UncategorizedCategoryID { ... }
+
+// or drive selection through a port/service, not a hardcoded slug
+```
+
+---
+
+### 5. Infrastructure state in the usecase struct
+
+A usecase struct must hold only injected ports. Never store in-memory caches, mutexes, sync primitives, or worker groups inside a usecase — these belong in a dedicated cache port or service.
+
+```go
+// WRONG — usecase owns an in-memory cache and concurrency primitives
+type ProductQualityScoreUseCase struct {
+	requestGroup    singleflight.Group
+	recentResults   map[string]cachedResult
+	recentResultsMu sync.Mutex
+	recentResultTTL time.Duration
+	...
+}
+```
+
+```go
+// RIGHT — delegate caching to a port, consistent with other usecases
+type ProductQualityScoreUseCase struct {
+	textGenerationCache aiports.TextGenerationCache // injected
+	textGeneratorService aiports.TextGeneratorService
+	...
+}
+```
+
+---
+
+### 6. Direct OS or filesystem calls
+
+Never call `os.Stat`, `os.ReadFile`, `os.Remove`, etc. directly. Delegate to a storage port.
+
+```go
+// WRONG
+zipFileInfo, err := os.Stat(zipFilePath)
+```
+
+```go
+// RIGHT — the service/port returns what the usecase needs
+zipResult, err := uc.zipPackagerService.Package(ctx, input)
+// zipResult.FilePath, zipResult.FileSize already available
+```
+
+---
+
+### 7. Duplicated private methods across usecase files
+
+When multiple usecases in the same package share identical logic, extract it once — either into a shared private package in a dedicated file (if it's truly stateless and package-scoped), or into an injected service/port.
+
+```go
+// WRONG — buildCategoryVariable copy-pasted into 4 different usecase files
+func (uc *ProductTitleGenerateUseCase) buildCategoryVariable(id *uint64) string { ... }
+func (uc *ProductDescriptionGenerateUseCase) buildCategoryVariable(id *uint64) string { ... }
+// ... repeated in 2 more files
+```
+
+```go
+// RIGHT — extracted once, either as a package-level helper file in usecase/
+// (e.g., usecase/helpers.go, no struct, only package-private functions)
+// OR as a method on an injected service port
+```
+
+Similarly, `resolveCollection` was duplicated across 3 AI usecase files. If multiple usecases need the same orchestration step, it's a sign that step belongs in a shared service port.
+
+---
+
+### 8. `record.ID == 0` check after `FindByID`
+
+`FindByID` must return `ErrRecordNotFound` when the record doesn't exist — that is the repository contract. Checking `ID == 0` after a successful `FindByID` call is a workaround for a broken contract and hides bugs.
+
+```go
+// WRONG — defensive zero-check leaks repository implementation detail
+product, err := uc.productRepository.FindByID(ctx, input.ProductID)
+if err != nil {
+	return ProductOutput{}, err
+}
+if product.ID == 0 {
+	return ProductOutput{}, brickserrs.ErrRecordNotFound
+}
+```
+
+```go
+// RIGHT — FindByID returns ErrRecordNotFound; trust the contract
+product, err := uc.productRepository.FindByID(ctx, input.ProductID)
+if err != nil {
+	return ProductOutput{}, err // ErrRecordNotFound surfaces here
+}
+```
+
+If the repository you're implementing doesn't do this, fix the repository — not the usecase.
+
+---
+
+### 9. In-memory membership or uniqueness checks
+
+Never fetch all records from a repository just to check whether one specific record exists. Add the right query method to the repository port instead.
+
+```go
+// WRONG — loads all prompts to check for a name conflict
+existingPrompts, err := uc.aiImagePromptRepository.FindAll(ctx)
+for _, p := range existingPrompts {
+	if strings.EqualFold(p.Name, input.Name) {
+		return ..., errs.ErrNameConflict
+	}
+}
+```
+
+```go
+// RIGHT — dedicated port method; O(1) query
+_, err := uc.aiImagePromptRepository.FindByName(ctx, input.Name)
+if err == nil {
+	return ..., errs.ErrNameConflict
+}
+if !errors.Is(err, brickserrs.ErrRecordNotFound) {
+	return ..., err
+}
+```
+
+Same applies to membership checks — instead of loading a full collection to see if a product belongs to it, add `ExistsByCollectionAndProduct(ctx, collectionID, productID) (bool, error)` to the port.
+
+---
+
+### 10. N+1 query pattern
+
+Never call a repository method inside a loop to fetch individual records. Use a batch/bulk repository method instead.
+
+```go
+// WRONG — one DB query per product
+for _, productID := range input.ProductIDs {
+	product, err := uc.productRepository.FindByID(ctx, productID) // N queries
+	...
+}
+```
+
+```go
+// RIGHT — single query
+products, err := uc.productRepository.FindByIDs(ctx, input.ProductIDs)
+if err != nil {
+	return ..., err
+}
+// validate products in memory
+```
+
+---
+
+### 11. Tracing or logging inside a usecase
+
+Observability (tracing, logging, metrics) is handled exclusively by the `ucdecorator` wrapper. Adding it inside a usecase creates inconsistency, duplicates work, and couples business logic to infrastructure.
+
+```go
+// WRONG — tracing and logging inside Execute
+func (uc *MyUseCase) Execute(ctx context.Context, input MyInput) (MyOutput, error) {
+	ctx, span := trace.Span(ctx, "MyUseCase.Execute")
+	defer span.End()
+
+	if err := doThing(); err != nil {
+		uc.logger.Error("MyUseCase.Execute failed", logger.Error(err))
+		return MyOutput{}, err
+	}
+	...
+}
+```
+
+```go
+// RIGHT — no tracing or logging in the usecase; decorator handles it
+func (uc *MyUseCase) Execute(ctx context.Context, input MyInput) (MyOutput, error) {
+	if err := uc.validator.Validate(input); err != nil {
+		return MyOutput{}, err
+	}
+	// business logic only
+	return MyOutput{}, nil
+}
+```
+
+If you ever add a `trace.Span` call anywhere in a usecase, make sure to use the returned `ctx` — discarding it (`_, span := trace.Span(...)`) silently breaks trace propagation.
+
+---
+
 ## Wire with Fx
 
 Register raw usecases and decorate them via `ucdecorator`.
@@ -269,24 +540,39 @@ This keeps:
 
 ## Enforce rules
 
-1. **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
-2. Depend only on `ports.*` interfaces in use cases.
-2. Keep orchestration in use case; keep persistence in repositories.
-3. Use a single public `Execute` method; do not create a private `execute` wrapper.
-4. Always define both Input and Output structs (use empty struct when needed).
-5. Input and Output must NOT contain `json` tags; use validation tags on Input only when needed.
-6. Keep naming consistent across file, structs, constructor, and method.
-7. Return typed output DTOs; do not leak persistence models directly.
-8. Keep observability and translation outside usecases (via decorators).
+1. **Only `_usecase.go` files in this package.** No mappers, helpers, or standalone utilities.
+2. **No package-level variables.** All dependencies go through the constructor.
+3. **No infrastructure imports.** Allowed: `ports.*`, domain enums/errs, `bricks/pkg/validator`, `bricks/pkg/errs`. Not allowed: `gorm.io/*`, `os`, `sync`, `database/sql`, driver packages.
+4. **No hardcoded magic strings or IDs as business rules.** Use enums, `constant/` package, or config.
+5. **No state in the usecase struct.** No maps, mutexes, singleflight groups, or in-memory caches — delegate to a cache port.
+6. **No observability in usecases.** No `logger`, `trace.Span`, or metrics calls — all of these live in the `ucdecorator` wrapper.
+7. **Trust the repository contract.** `FindByID` returns `ErrRecordNotFound` when not found. Never add `if record.ID == 0` as a guard after a successful `FindByID`.
+8. **No in-memory collection scans.** To check existence or uniqueness, add `FindByName`, `FindByID`, or `ExistsByX` to the repository port.
+9. **No N+1 queries.** Never call a repository method in a loop. Use batch methods (`FindByIDs`, etc.).
+10. **No duplicated private methods across files.** If multiple usecases share the same logic, extract it to a shared service port or a single package-level helper file.
+11. **No standalone functions when the file has a struct.** All private helpers must be methods on the use case struct.
+12. **Depend only on `ports.*` interfaces.** Never bypass the ports layer.
+13. **Keep orchestration in usecases; keep persistence in repositories.**
+14. **Use a single public `Execute` method.** No private `execute` wrappers.
+15. **Always define both Input and Output structs** (use empty struct when needed).
+16. **Input/Output must NOT have `json` tags.** Use validation tags on Input only when needed.
+17. **Return typed output DTOs.** Never leak persistence models.
 
 ## Final checklist
 
-1. Create `internal/modules/<module>/usecase/<operation>_usecase.go`.
-2. Add Input/Output DTOs for the operation (including empty structs when needed).
-3. Inject required ports/services in constructor.
-4. Implement a single `Execute` with all business logic.
-5. Wire raw usecase in Fx and decorate with `ucdecorator.Wrap(factory, raw)`.
-6. Create unit tests using the `go-unit-tests` skill.
-7. Run `make test`.
-8. Run `make lint`.
-9. Run `make nilaway`.
+1. File is named `<operation>_usecase.go` and lives in `internal/modules/<module>/usecase/`.
+2. Input and Output structs are defined (including empty structs when needed).
+3. All dependencies are injected via constructor — no package-level vars.
+4. `Execute` contains all business logic; no private `execute` wrapper exists.
+5. No `gorm`, `os`, `sync`, `net/http` or other infra imports.
+6. No hardcoded magic strings or IDs — enums or `constant/` package used instead.
+7. No logger, tracer, or metrics inside the usecase struct or Execute.
+8. `FindByID` is trusted to return `ErrRecordNotFound` — no `ID == 0` guard.
+9. No repository calls inside loops (N+1) — batch methods used instead.
+10. No in-memory scans to check uniqueness or membership — port has the right query method.
+11. No logic duplicated from another usecase file — extracted to a service or shared helper.
+12. Wired in Fx and decorated with `ucdecorator.Wrap(factory, raw)`.
+13. Unit tests created with the `go-unit-tests` skill.
+14. `make test` passes.
+15. `make lint` passes.
+16. `make nilaway` passes.
