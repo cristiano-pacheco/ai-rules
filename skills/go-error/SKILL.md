@@ -144,6 +144,7 @@ if profile == nil {
 
 ## Critical Rules
 
+- **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
 - Do not create a new error package; use module-local `internal/modules/<module>/errs`
 - Do not duplicate codes within the same module
 - Do not return persistence or infrastructure-specific raw errors to transport when a typed domain error exists

@@ -352,7 +352,8 @@ func TestPasswordValidator_TooShort_ReturnsError(t *testing.T) {
 
 ## Critical Rules
 
-1. **Two files**: Port interface in `ports/`, implementation in `validator/`
+1. **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
+2. **Two files**: Port interface in `ports/`, implementation in `validator/`
 2. **Interface in ports**: Interface lives in `ports/<name>_validator.go`
 3. **Interface assertion**: Add `var _ ports.XxxValidator = (*XxxValidator)(nil)` below the struct
 4. **Constructor**: MUST return pointer `*XxxValidator`

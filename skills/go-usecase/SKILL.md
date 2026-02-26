@@ -269,7 +269,8 @@ This keeps:
 
 ## Enforce rules
 
-1. Depend only on `ports.*` interfaces in use cases.
+1. **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
+2. Depend only on `ports.*` interfaces in use cases.
 2. Keep orchestration in use case; keep persistence in repositories.
 3. Use a single public `Execute` method; do not create a private `execute` wrapper.
 4. Always define both Input and Output structs (use empty struct when needed).

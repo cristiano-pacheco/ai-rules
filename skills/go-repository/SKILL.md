@@ -258,7 +258,8 @@ fx.Provide(
 
 ## Critical Rules
 
-1. **Struct**: Embed `*database.PingoDB` only
+1. **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
+2. **Struct**: Embed `*database.PingoDB` only
 2. **Constructor**: MUST return pointer `*EntityRepository`
 3. **Interface assertion**: Add `var _ ports.EntityRepository = (*EntityRepository)(nil)` below struct
 4. **Tracing**: Every method MUST start with `ctx, otelSpan := trace.Span(ctx, "Repo.Method")` and `defer otelSpan.End()`

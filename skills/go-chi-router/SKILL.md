@@ -160,7 +160,8 @@ fx.Provide(
 
 ## Rules
 
-1. The struct holds only handler pointer(s) — no other state
+1. **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
+2. The struct holds only handler pointer(s) — no other state
 2. Constructor returns a pointer (`*ResourceRouter`)
 3. `Setup` method signature is exactly `Setup(server *chi.Server)` — never deviate
 4. Always call `server.Router()` inside `Setup` to get the chi router

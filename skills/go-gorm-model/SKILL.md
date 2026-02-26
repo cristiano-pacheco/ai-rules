@@ -255,6 +255,7 @@ func (*ProfileModel) TableName() string {
 
 ## Critical Rules
 
+- **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
 - Models are persistence only — business logic belongs in use cases.
 - Do not expose GORM models directly in HTTP DTO responses.
 - Keep field names and types aligned with SQL migrations.

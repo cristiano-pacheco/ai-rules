@@ -438,6 +438,7 @@ Always verify more than just the return value. Assert:
 
 ### Code Style
 
+- **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
 - Maximum 120 characters per line
 - Test names clearly state what is tested and what is expected
 - Use inline struct slices for table-driven test cases (standard Go pattern)

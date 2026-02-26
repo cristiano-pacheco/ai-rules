@@ -314,6 +314,7 @@ s.Equal("expected", output.Name)
 
 ## Code Style
 
+- **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
 - Never use inline struct literals in assertions — always assign to a variable first
 - Maximum 120 characters per line
 - Test function names must describe what is being tested: `TestMethod_Scenario_ExpectedOutcome`

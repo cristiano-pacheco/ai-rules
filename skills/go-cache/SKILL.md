@@ -322,7 +322,8 @@ fx.Provide(
 
 ## Critical Rules
 
-1. **Two files**: Port in `ports/`, implementation in `cache/`
+1. **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
+2. **Two files**: Port in `ports/`, implementation in `cache/`
 2. **Interface assertion**: `var _ ports.XxxCache = (*XxxCache)(nil)` immediately below the struct
 3. **Constructor**: Returns `*XxxCache` (pointer)
 4. **Context**: Always accept `ctx context.Context` as first parameter — never call `context.Background()` internally

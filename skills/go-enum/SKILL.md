@@ -19,6 +19,8 @@ Each enum file contains:
 5. `String()` method
 6. Private validation function (`validate<Type>`)
 
+**Note**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead. For enum files, the private `validate<Type>` function is acceptable because the enum struct is a simple value wrapper without complex methods.
+
 ## Example — Enum File
 
 For an enum named "ContactType" with values "email" and "webhook" in the `monitor` module:

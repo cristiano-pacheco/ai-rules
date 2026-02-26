@@ -208,7 +208,8 @@ if err != nil {
 
 ## Critical Rules
 
-1. **Three files**: DTOs in `dto/`, port interface in `ports/`, implementation in `service/`
+1. **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
+2. **Three files**: DTOs in `dto/`, port interface in `ports/`, implementation in `service/`
 2. **Interface in ports**: Interface lives in `ports/<name>_service.go`
 3. **DTOs in dto**: Input/output structs live in `dto/<name>_dto.go`
 4. **Interface assertion**: Add `var _ ports.XxxService = (*XxxService)(nil)` below the struct

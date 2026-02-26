@@ -428,7 +428,8 @@ The handler is typically provided to the router, not exposed as a port.
 
 ## Critical Rules
 
-1. **Struct**: Include all use cases, `response.ErrorHandler`, and `logger.Logger`
+1. **No standalone functions**: When a file contains a struct with methods, do not add standalone functions. Use private methods on the struct instead.
+2. **Struct**: Include all use cases, `response.ErrorHandler`, and `logger.Logger`
 2. **Constructor**: MUST return pointer `*ResourceHandler`
 3. **Context**: Always get from request: `ctx := r.Context()`
 4. **Request decoding**: Use `request.ReadJSON(w, r, &dto)` - declare variable first, then call ReadJSON
