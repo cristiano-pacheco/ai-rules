@@ -339,6 +339,49 @@ func (h *ResourceHandler) newBadRequestError(message string) *brickserrs.Error {
 }
 ```
 
+# Request/Response Mapping
+
+Handler methods bridge HTTP requests/responses (DTOs from `internal/modules/<module>/http/dto`) with use case inputs/outputs.
+
+### Request to Use Case Input
+
+```go
+// Decode request
+var req dto.CreateResourceRequest
+
+err := request.ReadJSON(w, r, &req)
+if err != nil {
+	h.logger.Error("failed to parse request body", logger.Error(err))
+	h.errorHandler.Error(w, err)
+	return
+}
+
+// Map to use case input
+input := usecase.ResourceCreateInput{
+	Field1: req.Field1,
+	Field2: req.Field2,
+}
+```
+
+### Use Case Output to Response
+
+```go
+// Execute use case
+output, err := h.resourceCreateUseCase.Execute(ctx, input)
+if err != nil {
+	h.logger.Error("failed to create resource", logger.Error(err))
+	h.errorHandler.Error(w, err)
+	return
+}
+
+// Map to response DTO
+response := dto.CreateResourceResponse{
+	ID:     output.ID,
+	Field1: output.Field1,
+	Field2: output.Field2,
+}
+```
+
 ## Swagger Annotation Rules
 
 1. **@Summary**: Brief action description (e.g., "List resources", "Create resource")
