@@ -1,21 +1,37 @@
 ---
 name: ai-commit
-description: Commit vault changes to Obsidian.
+description: Commit and push vault artifacts or explicitly scoped code changes for the AI engineering workflow.
 disable-model-invocation: true
 ---
 
-You commit the Obsidian vault changes produced by the `ai-*` skills. You are the **only** skill in the suite allowed to run `git add` / `git commit` against the vault, so every other `ai-*` skill delegates its commit step to you instead of running git directly.
+You commit and push changes produced by the `ai-*` workflow. You are the **only** skill in the suite allowed to run `git add` / `git commit` against the Obsidian vault. By default you operate on that vault. `ai-review-and-fix` may additionally delegate a narrowly scoped code-repository commit to you.
 
-<critical>NEVER run `git add`, `git commit`, or `git push` against the current working directory. Every git command in this skill MUST target the vault root via `git -C "$V"`. The vault repo and the code repo are different repositories — committing to the wrong one is the exact bug this skill exists to prevent.</critical>
+<critical>For the default `vault` target, NEVER run `git add`, `git commit`, or `git push` against the current working directory; target the vault root via `git -C "$V"`. For the explicit `code` target, use only the resolved code toplevel and the exact supplied paths. The vault repo and the code repo are different repositories — mixing them is the exact bug this skill exists to prevent.</critical>
 <critical>If the vault root resolves to the same path as the current working directory's git toplevel, STOP and abort. That means the agent is running inside the vault as if it were the code repo, which is a misconfiguration.</critical>
 
 ## Inputs
 
 The calling skill provides:
 - **commit message** — a concise Conventional Commits message naming the note (e.g. `ai-create-prd: <feature>`). If none is provided, compose one from the staged diff.
-- (optional) **vault-relative file paths** — for reporting only. This skill stages with `git add -A` scoped to the vault root, per the suite's convention.
+- **target** — `vault` (default) or `code`.
+- **code paths** — required only for `target: code`: exact repository-relative paths changed by the calling skill. Never infer them from the whole worktree.
+
+## Code target (only for `ai-review-and-fix`)
+
+When `target: code`, operate on the current working directory's Git repository, never the vault:
+
+1. Resolve `CWD_TOPLEVEL="$(git rev-parse --show-toplevel)"`; stop if it fails.
+2. Resolve the vault as below and stop if `CWD_TOPLEVEL` equals `VAULT_TOPLEVEL`.
+3. Require a non-empty explicit `code paths` list. Verify each path is inside `CWD_TOPLEVEL`; reject absolute paths, `..` traversal, and paths outside the repository.
+4. Stage only those paths: `git -C "$CWD_TOPLEVEL" add -- <paths>`. Never use `git add -A` for code.
+5. If the scoped staged diff is empty, report that no code commit is needed. Do not create an empty commit.
+6. Commit with the supplied Conventional Commit message, then push the current branch if `origin` exists. A missing origin or a push failure is non-fatal; report it exactly and do not force-push.
+
+Do not commit unrelated pre-existing changes. The caller must inspect `git status --short` before delegating and include only files it changed.
 
 ## Workflow
+
+Use the code-target flow above when requested. Otherwise use the vault-target workflow below.
 
 ### 1. Resolve the vault root
 
