@@ -19,16 +19,15 @@ Your job is not to rewrite the spec for style — it is to surface the **highest
 
 All output goes to the user's Obsidian vault, written **directly on the local filesystem** (no MCP), grouped by project.
 
-**Vault root (default):** `$HOME/Documents/obsidian/obsidian` — override by telling the skill a different absolute path. Everything below lives under `<vault>/engineering/...`. Use the `Read`/`Write`/`Edit` tools (and `ls` via Bash) with the **absolute** path, e.g. `$HOME/Documents/obsidian/obsidian/engineering/<project>/...`. Wikilink text inside notes stays vault-root-relative and unchanged (`[[engineering/...]]`) — never put the absolute path inside `[[...]]`.
+**Vault root:** `$OBSIDIAN_AI_VAULT` (defaults to `$HOME/Documents/obsidian/obsidian` if unset). Everything below lives under `<vault>/engineering/...`. Use the `Read`/`Write`/`Edit` tools (and `ls` via Bash) with the **absolute** path, e.g. `$OBSIDIAN_AI_VAULT/engineering/<project>/...`. Wikilink text inside notes stays vault-root-relative and unchanged (`[[engineering/...]]`) — never put the absolute path inside `[[...]]`.
 
-**Commit to the vault repo (after writing).** Once this run's files are written (the note plus any `index.md` updates), stage, commit, and push them from the vault root so the repo stays in sync:
+**Commit to the vault repo (after writing).** Once this run's files are written (the note plus any `index.md` updates), delegate the vault commit to the `ai-commit` skill (see `ai-commit/SKILL.md`). Pass the commit message:
 
-```bash
-V="$HOME/Documents/obsidian/obsidian"
-git -C "$V" add -A && git -C "$V" commit -m "<message>" && git -C "$V" push
+```
+ai-review-techspec: <feature>
 ```
 
-Use a concise message naming the note (e.g. `ai-review-techspec: <feature>`). If there's nothing staged, no `origin`, or the push fails (offline), report it briefly and finish — don't abort the skill. `ai-setup` configures the repo and its `origin`.
+`ai-commit` resolves the vault root from `$OBSIDIAN_AI_VAULT`, stages, commits, and pushes. Never run `git add` / `git commit` / `git push` directly here. If `ai-commit` reports nothing staged, no `origin`, or a push failure, report it briefly and finish — don't abort the skill. `ai-setup` configures the repo and its `origin`.
 
 ### Resolve the project base path
 

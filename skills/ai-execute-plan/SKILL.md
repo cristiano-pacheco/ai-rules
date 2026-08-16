@@ -22,16 +22,22 @@ This is the execution step for `ai-create-plan`. The plan is read from Obsidian;
 
 Code changes go to the local repository. The only thing written to the Obsidian vault is `implementation-notes.md`, and only when there is relevant context to preserve - written **directly on the local filesystem** (no MCP).
 
-**Vault root (default):** `$HOME/Documents/obsidian/obsidian` - override by telling the skill a different absolute path. The vault docs live under `<vault>/engineering/...`. Use the `Read`/`Write`/`Edit` tools (and `ls` via Bash) with the **absolute** path, e.g. `$HOME/Documents/obsidian/obsidian/engineering/<project>/...`. Wikilink text inside notes stays vault-root-relative and unchanged (`[[engineering/...]]`) - never put the absolute path inside `[[...]]`.
+**Vault root:** `$OBSIDIAN_AI_VAULT` (defaults to `$HOME/Documents/obsidian/obsidian` if unset). The vault docs live under `<vault>/engineering/...`. Use the `Read`/`Write`/`Edit` tools (and `ls` via Bash) with the **absolute** path, e.g. `$OBSIDIAN_AI_VAULT/engineering/<project>/...`. Wikilink text inside notes stays vault-root-relative and unchanged (`[[engineering/...]]`) - never put the absolute path inside `[[...]]`.
 
-**Commit to the vault repo (after writing).** If `implementation-notes.md` is written or updated, stage, commit, and push from the vault root so the repo stays in sync (this is separate from any commit you make in the code repo):
+**Two separate repositories — never mix them.** This skill writes to **two** different git repos:
 
-```bash
-V="$HOME/Documents/obsidian/obsidian"
-git -C "$V" add -A && git -C "$V" commit -m "<message>" && git -C "$V" push
+1. **The code repo** (the current working directory) - where you implement the plan. Any `git add` / `git commit` here is the user's responsibility and outside this skill's scope; do not auto-commit code unless the user asks.
+2. **The vault repo** (`$OBSIDIAN_AI_VAULT`) - where the implementation notes live. The vault commit is delegated to `ai-commit`.
+
+<critical>NEVER run `git add` / `git commit` / `git push` against the vault from inside this skill. Delegate the vault commit to the `ai-commit` skill (see `ai-commit/SKILL.md`). `ai-commit` resolves the vault root from `$OBSIDIAN_AI_VAULT` and guards against operating inside the code repo.</critical>
+
+If `implementation-notes.md` is written or updated, delegate the vault commit to the `ai-commit` skill. Pass the commit message:
+
+```
+ai-execute-plan: <plan>
 ```
 
-Use a concise message naming the plan (e.g. `ai-execute-plan: <plan>`). If there's nothing staged, no `origin`, or the push fails (offline), report it briefly and finish - don't abort the skill. `ai-setup` configures the repo and its `origin`.
+`ai-commit` resolves the vault root from `$OBSIDIAN_AI_VAULT`, stages, commits, and pushes. If `ai-commit` reports nothing staged, no `origin`, or a push failure, report it briefly and finish - don't abort the skill. `ai-setup` configures the repo and its `origin`.
 
 ### Resolve the project base path
 

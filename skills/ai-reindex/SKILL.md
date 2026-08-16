@@ -20,12 +20,11 @@ the whole tree.
 
 ## 1. Verify the vault is reachable
 
-**Vault root (default):** `$HOME/Documents/obsidian/obsidian` — override by telling
-the skill a different absolute path. All paths below are under `<vault>/engineering/...`;
+**Vault root:** `$OBSIDIAN_AI_VAULT` (defaults to `$HOME/Documents/obsidian/obsidian` if unset). All paths below are under `<vault>/engineering/...`;
 use `Read`/`Write`/`Edit` (and `ls` via Bash) with the **absolute** path, but keep
 wikilink text vault-root-relative (`[[engineering/...]]`).
 
-Check the vault root exists: `test -d "$HOME/Documents/obsidian/obsidian"`. If it's
+Check the vault root exists: `test -d "${OBSIDIAN_AI_VAULT:-$HOME/Documents/obsidian/obsidian}"`. If it's
 missing (or `<vault>/engineering` doesn't exist), stop and tell the user to set up the
 integration (run `ai-setup`). Everything else depends on this.
 
@@ -48,14 +47,13 @@ Use the "Rebuild recipe for one index" from the conventions file for every
 
 ## 3. Commit to the vault repo
 
-After all `index.md` files are rebuilt, stage, commit, and push them from the vault root so the repo stays in sync:
+After all `index.md` files are rebuilt, delegate the vault commit to the `ai-commit` skill (see `ai-commit/SKILL.md`). Pass the commit message:
 
-```bash
-V="$HOME/Documents/obsidian/obsidian"
-git -C "$V" add -A && git -C "$V" commit -m "ai-reindex: rebuild wikilink indexes" && git -C "$V" push
+```
+ai-reindex: rebuild wikilink indexes
 ```
 
-If there's nothing staged, no `origin`, or the push fails (offline), report it briefly and finish — don't abort the skill. `ai-setup` configures the repo and its `origin`.
+`ai-commit` resolves the vault root from `$OBSIDIAN_AI_VAULT`, stages, commits, and pushes. Never run `git add` / `git commit` / `git push` directly here. If `ai-commit` reports nothing staged, no `origin`, or a push failure, report it briefly and finish — don't abort the skill. `ai-setup` configures the repo and its `origin`.
 
 ## 4. Report
 

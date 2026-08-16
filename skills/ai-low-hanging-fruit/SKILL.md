@@ -21,16 +21,15 @@ If it's ambiguous which mode applies, ask.
 
 Output lives in the user's Obsidian vault, written **directly on the local filesystem** (no MCP), grouped by project.
 
-**Vault root (default):** `$HOME/Documents/obsidian/obsidian` — override by telling the skill a different absolute path. Everything below lives under `<vault>/engineering/...`. Use `Read`/`Write`/`Edit` (and `ls` via Bash) with the **absolute** path. Wikilink text inside notes stays vault-root-relative (`[[engineering/...]]`) — never put the absolute path inside `[[...]]`.
+**Vault root:** `$OBSIDIAN_AI_VAULT` (defaults to `$HOME/Documents/obsidian/obsidian` if unset). Everything below lives under `<vault>/engineering/...`. Use `Read`/`Write`/`Edit` (and `ls` via Bash) with the **absolute** path. Wikilink text inside notes stays vault-root-relative (`[[engineering/...]]`) — never put the absolute path inside `[[...]]`.
 
-**Commit to the vault repo (after writing).** Once this run's files are written (the note plus any `index.md` updates), stage, commit, and push them from the vault root so the repo stays in sync:
+**Commit to the vault repo (after writing).** Once this run's files are written (the note plus any `index.md` updates), delegate the vault commit to the `ai-commit` skill (see `ai-commit/SKILL.md`). Pass the commit message:
 
-```bash
-V="$HOME/Documents/obsidian/obsidian"
-git -C "$V" add -A && git -C "$V" commit -m "<message>" && git -C "$V" push
+```
+ai-low-hanging-fruit: <workplan>
 ```
 
-Use a concise message naming the note (e.g. `ai-low-hanging-fruit: <workplan>`). If there's nothing staged, no `origin`, or the push fails (offline), report it briefly and finish — don't abort the skill. `ai-setup` configures the repo and its `origin`.
+`ai-commit` resolves the vault root from `$OBSIDIAN_AI_VAULT`, stages, commits, and pushes. Never run `git add` / `git commit` / `git push` directly here. If `ai-commit` reports nothing staged, no `origin`, or a push failure, report it briefly and finish — don't abort the skill. `ai-setup` configures the repo and its `origin`.
 
 1. **Project:** run `git rev-parse --show-toplevel`; the basename is the project name. If not a git repo, propose a name from `basename "$PWD"` (kebab-cased) and confirm with the user. Base path: `engineering/<project>`.
 2. **Workplan:** if the user gave a feature or plan slug (e.g. `river-job-index-bloat` or `integrate-zoho-provider`), use it and confirm the folder exists (`ls -1 "<vault>/engineering/<project>/workplans"`). Otherwise list `<vault>/engineering/<project>/workplans` to find it; if ambiguous or missing, ask.
