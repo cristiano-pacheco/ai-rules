@@ -30,29 +30,27 @@ Follow these steps in order:
 7. Separate work in progress and unverified outcomes.
 8. Add a technical evidence appendix.
 9. Run the quality checks.
-10. Write the result to `$HOME/Documents/obsidian/obsidian/brag-document.md` and verify the persisted file.
-11. Ensure `$HOME/Documents/obsidian/obsidian/engineering/index.md` links to the brag document.
-12. Stage only the generated files and commit them in the vault Git repository.
+10. Write the result to `$OBSIDIAN_AI_VAULT/brag-document.md` (default `$HOME/Documents/obsidian/obsidian/brag-document.md`) and verify the persisted file.
+11. Ensure `$OBSIDIAN_AI_VAULT/engineering/index.md` links to the brag document.
+12. Stage only the generated files and delegate the commit to the `ai-commit` skill (it targets the vault repo, never the code repo).
 
 ## Obsidian vault I/O
 
 The Obsidian vault is the mandatory source of truth for the brag document. Read the source notes directly from the filesystem and write the generated document directly back to the same vault.
 
-Always use these fixed paths:
+The vault root resolves from `$OBSIDIAN_AI_VAULT` (defaults to `$HOME/Documents/obsidian/obsidian` if unset) — the same override point used by every `ai-*` skill. Always use these resolved paths:
 
 ```bash
-VAULT_PATH="$HOME/Documents/obsidian/obsidian"
+VAULT_PATH="${OBSIDIAN_AI_VAULT:-$HOME/Documents/obsidian/obsidian}"
 ENGINEERING_PATH="$VAULT_PATH/engineering"
 ENGINEERING_INDEX="$ENGINEERING_PATH/index.md"
 BRAG_DOCUMENT="$VAULT_PATH/brag-document.md"
 ```
 
-Do not replace this mechanism with the Obsidian CLI, configurable vault names, environment variables, repository-root output, or another storage location.
-
 ### Verify the vault
 
 ```bash
-VAULT_PATH="$HOME/Documents/obsidian/obsidian"
+VAULT_PATH="${OBSIDIAN_AI_VAULT:-$HOME/Documents/obsidian/obsidian}"
 ENGINEERING_PATH="$VAULT_PATH/engineering"
 ENGINEERING_INDEX="$ENGINEERING_PATH/index.md"
 BRAG_DOCUMENT="$VAULT_PATH/brag-document.md"
@@ -91,7 +89,7 @@ fi
 
 ### Discover source notes
 
-Collect candidate evidence from the **entire Engineering tree** at `$HOME/Documents/obsidian/obsidian/engineering`. This is mandatory. Do not limit discovery to repositories already mentioned by the user, the current brag document, recently edited notes, or the first matching workplan.
+Collect candidate evidence from the **entire Engineering tree** at `$OBSIDIAN_AI_VAULT/engineering` (default `$HOME/Documents/obsidian/obsidian/engineering`). This is mandatory. Do not limit discovery to repositories already mentioned by the user, the current brag document, recently edited notes, or the first matching workplan.
 
 Search the whole Engineering tree in multiple passes. Complete every pass before deciding which accomplishments belong in the brag document.
 
@@ -246,10 +244,10 @@ Never append a fully regenerated review. Read the existing document, merge valid
 
 ### Update the Engineering index
 
-The Engineering index must expose the brag document as part of the vault navigation. Use this fixed path:
+The Engineering index must expose the brag document as part of the vault navigation. This path was already resolved at the top of this run:
 
 ```bash
-ENGINEERING_INDEX="$HOME/Documents/obsidian/obsidian/engineering/index.md"
+ENGINEERING_INDEX="$VAULT_PATH/engineering/index.md"
 ```
 
 Read `engineering/index.md` after writing the brag document. Check for an existing Obsidian wiki-link or Markdown link to the root `brag-document.md`, including aliases such as `[[brag-document|Brag Document]]`.
@@ -293,7 +291,7 @@ Do not rewrite or reorder unrelated index content. Only create or add the missin
 
 ### Stage and commit the vault changes
 
-Perform all Git commands in `$HOME/Documents/obsidian/obsidian`. Stage only the files owned by this workflow. Never use `git add .`, `git add -A`, or stage unrelated vault changes.
+Perform all Git commands against the vault root resolved from `$OBSIDIAN_AI_VAULT` (default `$HOME/Documents/obsidian/obsidian`). Stage only the files owned by this workflow. Never use `git add .`, `git add -A`, or stage unrelated vault changes.
 
 ```bash
 cd "$VAULT_PATH"
@@ -313,20 +311,16 @@ The staged file list must contain only:
 
 If any other path is staged, unstage it and stop rather than committing unrelated work. If neither expected file has a staged diff, do not create an empty commit; report that the vault was already up to date.
 
-When the staged diff is correct, commit it:
+When the staged diff is correct, delegate the commit to the `ai-commit` skill (see `ai-commit/SKILL.md`) with the message `docs(engineering): update brag document`. `ai-commit` resolves the vault root from `$OBSIDIAN_AI_VAULT`, commits, and pushes.
+
+<critical>This skill does not push. If `ai-commit` pushes automatically (its default when an `origin` remote exists), that is acceptable; the historical "do not push" rule is superseded by the suite-wide `ai-commit` delegation. The key constraint — never commit into the code repo — is enforced by `ai-commit`'s vault-vs-cwd guard.</critical>
+
+After committing, verify:
 
 ```bash
-if git diff --cached --quiet; then
-  echo "No brag-document changes to commit."
-else
-  git commit -m "docs(engineering): update brag document"
-fi
-
-git status --short
-git log -1 --oneline
+git -C "$VAULT_PATH" status --short
+git -C "$VAULT_PATH" log -1 --oneline
 ```
-
-Do not push. The workflow ends after the local commit is created and verified.
 
 ## 1. Determine scope
 
@@ -346,7 +340,7 @@ When updating an existing brag document, preserve strong verified entries, remov
 
 ## 2. Discover work and evidence
 
-Run the complete six-pass Engineering-vault discovery protocol above. The content source is the full `$HOME/Documents/obsidian/obsidian/engineering` tree, not a predefined list of services or repositories.
+Run the complete six-pass Engineering-vault discovery protocol above. The content source is the full `$OBSIDIAN_AI_VAULT/engineering` tree (default `$HOME/Documents/obsidian/obsidian/engineering`), not a predefined list of services or repositories.
 
 The scan must collect and correlate:
 
@@ -720,20 +714,20 @@ Before saving the file, verify every item below.
 - [ ] `brag-document.md` was written and read back successfully.
 - [ ] `engineering/index.md` contains one valid reference to the brag document.
 - [ ] Only the expected files are staged.
-- [ ] The staged diff was reviewed and committed locally, or no file changes existed.
+- [ ] The staged diff was reviewed and the commit was delegated to `ai-commit`, or no file changes existed.
 
 ## Output requirements
 
-- Use `$HOME/Documents/obsidian/obsidian` as the fixed and only Obsidian vault path.
-- Use `$HOME/Documents/obsidian/obsidian/brag-document.md` as the fixed output file.
+- Use `$OBSIDIAN_AI_VAULT` (default `$HOME/Documents/obsidian/obsidian`) as the Obsidian vault path — the same override point every `ai-*` skill uses.
+- Use `$OBSIDIAN_AI_VAULT/brag-document.md` (default `$HOME/Documents/obsidian/obsidian/brag-document.md`) as the output file.
 - Read the existing brag document with `cat` before updating it, unless it does not exist.
-- Search the complete `$HOME/Documents/obsidian/obsidian/engineering` tree in multiple passes for workplans, PRDs, tech specs, PRs, pull requests, incidents, rollouts, metrics, and linked evidence before filtering by period or author.
+- Search the complete `$OBSIDIAN_AI_VAULT/engineering` tree in multiple passes for workplans, PRDs, tech specs, PRs, pull requests, incidents, rollouts, metrics, and linked evidence before filtering by period or author.
 - Discover and read source content directly from Markdown files inside the vault using `find`, `rg`, and `cat`.
-- Do not use the Obsidian CLI, configurable vault variables, or repository-root output.
+- Do not use the Obsidian CLI or repository-root output. The vault path comes from `$OBSIDIAN_AI_VAULT` (or its default), not from a per-skill override.
 - Write the complete result through a temporary file inside the vault, atomically replace `brag-document.md` with `mv`, and verify it with `cat`.
-- Read `$HOME/Documents/obsidian/obsidian/engineering/index.md` and ensure it contains exactly one valid link to the root brag document; preserve an existing link or add `[[brag-document|Brag Document]]` without rewriting unrelated index content.
-- Treat `$HOME/Documents/obsidian/obsidian` as the Git repository. Require an empty staging area before editing, stage only `brag-document.md` and the changed `engineering/index.md`, review the staged diff, and commit with `docs(engineering): update brag document`.
-- Do not use `git add .`, include unrelated changes, create an empty commit, or push the commit.
+- Read `$OBSIDIAN_AI_VAULT/engineering/index.md` and ensure it contains exactly one valid link to the root brag document; preserve an existing link or add `[[brag-document|Brag Document]]` without rewriting unrelated index content.
+- Treat `$OBSIDIAN_AI_VAULT` as the Git repository. Require an empty staging area before editing, stage only `brag-document.md` and the changed `engineering/index.md`, review the staged diff, and delegate the commit to the `ai-commit` skill with the message `docs(engineering): update brag document`.
+- Do not use `git add .`, include unrelated changes, or create an empty commit.
 - Return a short summary of the most important changes made to the document and the created commit hash, or state that no commit was needed.
 - Mention material evidence gaps without weakening confirmed achievements.
 - Do not produce a résumé, promotion recommendation, or performance rating unless explicitly requested.
