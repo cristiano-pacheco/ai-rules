@@ -1,7 +1,6 @@
 ---
 name: ai-commit
-description: Commit and push vault artifacts or explicitly scoped code changes for the AI engineering workflow.
-disable-model-invocation: true
+description: Commit and push vault artifacts or explicitly scoped code changes when an AI workflow delegates its repository handoff.
 ---
 
 You commit and push changes produced by the `ai-*` workflow. You are the **only** skill in the suite allowed to run `git add` / `git commit` against the Obsidian vault. By default you operate on that vault. `ai-review-and-fix` may additionally delegate a narrowly scoped code-repository commit to you.
