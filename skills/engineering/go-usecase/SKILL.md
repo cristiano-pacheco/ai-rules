@@ -1,90 +1,87 @@
 ---
 name: go-usecase
-description: Generate use cases. Use when creating business operations, CRUD use cases, or any Execute-based module operation.
+description: Local Go use-case implementation. Use when creating or changing an application operation that coordinates domain work. Don't use for reusable domain services, HTTP handlers, persistence adapters, validators, or mappers.
 ---
 
 # Go UseCase
 
-Generate use case implementation for Go modular architecture.
 
-## When to Use
+Build one **local** application operation at a time. Local evidence decides the
+application boundary, dependencies, validation, composition, and test command.
+When the target has no established pattern, use the baseline in this skill.
 
-- Create business operations with Execute pattern
-- CRUD use cases for any module
-- Operations requiring input validation and error handling
-- Any domain logic orchestrating ports
+## Baseline naming
 
-## File Pattern
+For noun `User` and action `Create`, use these names:
 
-One file per operation: `internal/modules/<module>/usecase/<noun>_<action>_usecase.go`
-
-Examples: `user_create_usecase.go`, `product_update_usecase.go`, `order_cancel_usecase.go`
-
-## Naming Convention
-
-Given noun `User` and action `Create`:
-
-| Element | Name |
-|---|---|
-| File | `user_create_usecase.go` |
+| Element | Baseline |
+| --- | --- |
+| File | `internal/modules/<module>/usecase/user_create_usecase.go` |
 | Struct | `UserCreateUseCase` |
 | Input | `UserCreateInput` |
 | Output | `UserCreateOutput` |
 | Constructor | `NewUserCreateUseCase` |
-| Method | `Execute` |
+| Entry point | `Execute` |
 
-Pattern: **NounAction** + `UseCase` for the struct. **NounAction** + `Input` / `Output` for DTOs.
+`NounAction` is deliberate: keep the noun before the action in every generated
+identifier. Use the exact module-local equivalent only when comparable local
+operations establish a different convention.
 
-## Structure
+## Baseline implementation
+
+Resolve import paths from the target module's `go.mod`; do not copy a project
+path from this example. Import `context`, the established logger and validator,
+and the target module's `model` and `ports` packages. With those baseline
+conventions, a `UserCreate` operation has this canonical shape:
+
+The `validate:"..."` field-tag syntax is defined by
+[`github.com/go-playground/validator`](https://github.com/go-playground/validator),
+which the local `validator.Validator` abstraction may wrap. Confirm every tag
+against the version declared in `go.mod`; validation libraries and custom local
+registrations determine the supported tag set.
 
 ```go
 package usecase
 
-import (
-	"context"
-
-	"github.com/cristiano-pacheco/bricks/pkg/logger"
-	"github.com/cristiano-pacheco/bricks/pkg/validator"
-	"github.com/cristiano-pacheco/gomies/internal/modules/<module>/model"
-	"github.com/cristiano-pacheco/gomies/internal/modules/<module>/ports"
-)
-
-type NounActionInput struct {
+type UserCreateInput struct {
 	FirstName string `validate:"required,min=3,max=255"`
 	LastName  string `validate:"required,min=3,max=255"`
 	Password  string `validate:"required,min=8"`
 	Email     string `validate:"required,email,max=255"`
 }
 
-type NounActionOutput struct {
+type UserCreateOutput struct {
+	UserID    uint64
 	FirstName string
 	LastName  string
 	Email     string
-	UserID    uint64
 }
 
-type NounActionUseCase struct {
+type UserCreateUseCase struct {
 	userRepository ports.UserRepository
 	validator      validator.Validator
 	logger         logger.Logger
 }
 
-func NewNounActionUseCase(
+func NewUserCreateUseCase(
 	userRepository ports.UserRepository,
 	validator validator.Validator,
 	logger logger.Logger,
-) *NounActionUseCase {
-	return &NounActionUseCase{
-		validator: validator,
-		logger:    logger,
+) *UserCreateUseCase {
+	return &UserCreateUseCase{
+		userRepository: userRepository,
+		validator:      validator,
+		logger:         logger,
 	}
 }
 
-func (uc *NounActionUseCase) Execute(ctx context.Context, input NounActionInput) (NounActionOutput, error) {
-	err := uc.validator.Struct(input)
-	if err != nil {
+func (uc *UserCreateUseCase) Execute(
+	ctx context.Context,
+	input UserCreateInput,
+) (UserCreateOutput, error) {
+	if err := uc.validator.Struct(input); err != nil {
 		uc.logger.Error("user creation validation failed", logger.Error(err))
-		return NounActionOutput{}, err
+		return UserCreateOutput{}, err
 	}
 
 	userModel := model.UserModel{
@@ -97,84 +94,141 @@ func (uc *NounActionUseCase) Execute(ctx context.Context, input NounActionInput)
 	createdUser, err := uc.userRepository.Create(ctx, userModel)
 	if err != nil {
 		uc.logger.Error("user creation failed", logger.Error(err))
-		return NounActionOutput{}, err
+		return UserCreateOutput{}, err
 	}
 
-	output := NounActionOutput{
+	return UserCreateOutput{
 		UserID:    createdUser.ID,
 		FirstName: createdUser.FirstName,
 		LastName:  createdUser.LastName,
 		Email:     createdUser.Email,
-	}
-
-	return output, nil
+	}, nil
 }
 ```
 
-## Execute Method Flow
+## 1. Inspect the local contract
 
-1. **Validate input** — always first: `uc.validator.Struct(input)`
-2. **Business logic** — repository calls, service calls, domain checks
-3. **Log every error** before returning it
-4. **Return typed errors** from `errs` package
-5. **Map result** to Output struct and return
+Inspect before editing:
 
-## Input Validation
+- the target module, its `go.mod`, and relevant domain context and ADRs;
+- the closest comparable application operation and its focused tests;
+- its input/output ownership, naming, constructor, public entry point, and
+  private-helper convention;
+- every port, model, domain service, validator, typed error, and mapper the
+  operation needs; and
+- the composition root and the narrowest documented validation command.
 
-Define constraints via `validate` struct tags on the Input struct. Call `uc.validator.Struct(input)` as the first line inside `Execute`. Return validation errors directly — the shared validator formats them.
+**Done when:** the agent can name the owning package, comparable operation,
+required collaborators, validation mechanism, composition mechanism, and
+focused command from repository evidence.
 
-Common tags: `required`, `min=N`, `max=N`, `email`, `oneof=val1 val2 val3`
+## 2. Choose the operation shape
 
-## Error Handling
+Match the established application boundary. A module using function-based
+commands, handlers, or another validation mechanism keeps that shape; adding a
+new `UseCase`, `Execute`, Fx provider, validator, or decorator requires local
+evidence or an explicit request.
 
-Every error from a repository, service, or external call MUST be logged before returning:
+When no comparable boundary exists, use this baseline:
+
+- place one operation in `usecase/<noun>_<action>_usecase.go`;
+- expose `NounActionUseCase.Execute(ctx context.Context, input NounActionInput) (NounActionOutput, error)`;
+- inject module collaborators as `ports.*` interfaces; and
+- construct the use case with `NewNounActionUseCase(...) *NounActionUseCase`.
+
+If inspection leaves a material choice unresolved, stop after reporting the
+evidence and request direction. Do not select an architecture by familiarity.
+
+**Done when:** one local or baseline operation shape is selected and every
+companion change is necessary to make that shape work.
+
+## 3. Define a private operation contract
+
+Define both `NounActionInput` and `NounActionOutput` in the operation file,
+including an empty struct when the operation has no fields. Treat them as a
+private contract of that operation:
+
+- declare every field explicitly, including fields of any nested type declared
+  in the same file;
+- keep input and output independent of shared module DTOs and persistence
+  models;
+- omit `json` tags; transport DTOs belong to the transport layer; and
+- create a separate input and output type for each operation, even when shapes
+  currently match.
+
+Map at boundaries explicitly: input to domain or persistence values before a
+collaborator call, and collaborator results to output before success returns.
+
+For a tag-based local validator, put validation tags on the input and make
+`uc.validator.Struct(input)` the first call in `Execute`. Include
+`validator.Validator` and `logger.Logger` in the baseline constructor and
+struct; use the locally established equivalents when the module proves another
+mechanism.
+
+**Done when:** the operation owns complete input/output types and its dependency
+fields are interfaces or locally established shared infrastructure, never a
+concrete module adapter.
+
+## 4. Implement a narrow `Execute`
+
+Keep the application operation as orchestration:
+
+1. validate input using the selected local mechanism;
+2. perform the required domain checks and port/service calls;
+3. translate expected business outcomes to module typed errors; and
+4. return an explicitly mapped output.
+
+The baseline use case has one public `Execute` method. Keep supporting logic as
+private methods on the use-case struct.
+
+Return terminal errors deliberately. Before each error return, log it through
+the operation's logger with `logger.Error(err)` when that is the local logging
+convention. For expected absence used to decide a business rule, distinguish the
+known absence from an unexpected lookup failure, then log the error ultimately
+returned. Preserve error identity with `errors.Is` when the local error model
+uses it. Return a typed module error from `errs` for a business outcome rather
+than synthesizing a raw error string.
+
+For example, use a known not-found error only as the branch condition; all other
+lookup failures remain terminal:
 
 ```go
-entity, err := uc.entityRepository.FindByID(ctx, input.ID)
-if err != nil {
-	uc.logger.Error("error finding entity by id", logger.Error(err))
-	return EntityGetOutput{}, err
+existingUser, err := uc.userRepository.FindByEmail(ctx, input.Email)
+if err != nil && !errors.Is(err, brickserrs.ErrRecordNotFound) {
+	uc.logger.Error("user lookup failed", logger.Error(err))
+	return UserCreateOutput{}, err
+}
+if existingUser.ID != 0 {
+	err = errs.ErrEmailAlreadyInUse
+	uc.logger.Error("user creation rejected", logger.Error(err))
+	return UserCreateOutput{}, err
 }
 ```
 
-For not-found checks where absence is expected (not a terminal error):
+When the module uses `ucdecorator` for observability, leave tracing and metrics
+at that decorator boundary. Do not duplicate that concern inside `Execute`.
 
-```go
-entity, err := uc.entityRepository.FindByEmail(ctx, input.Email)
-if err != nil && !errors.Is(err, bricserrs.ErrRecordNotFound) {
-	uc.logger.Error("error finding entity by email", logger.Error(err))
-	return EntityCreateOutput{}, err
-}
-if entity.ID != 0 {
-	return EntityCreateOutput{}, errs.ErrEmailAlreadyInUse
-}
-```
+**Done when:** every success path returns a complete output, every terminal
+error has the local logging and typed-error treatment, and all collaborator
+calls use the request context when their local signatures accept one.
 
-Import for bricks errors: `bricserrs "github.com/cristiano-pacheco/bricks/errs"`
+## 5. Compose without changing the boundary
 
-Return typed module errors from `errs` — never `errors.New(...)`.
+Register only the construction required by the observed composition root. Keep
+the raw use-case constructor available to composition code and unit tests.
 
-## Dependencies
-
-Every use case includes these shared dependencies:
-
-- `validator.Validator` — input struct validation via tags
-- `logger.Logger` — error logging
-
-
-Never inject concrete types for module dependencies.
-
-## Fx Wiring
-
-In the module's `fx.go`, register raw constructors and a single `provideDecoratedUseCases` function that wraps them all.
-
-### Single use case
+For the established Fx plus `ucdecorator` variant, add the constructor to
+`fx.Provide` and extend the module's single decorated-use-case provider. Its
+`fx.In` field receives `*usecase.NounActionUseCase`; its `fx.Out` field exports
+`ucdecorator.UseCase[usecase.NounActionInput, usecase.NounActionOutput]`; the
+provider returns `ucdecorator.Wrap(factory, in.NounActionUseCase)`. Preserve the
+existing field and provider naming in that module.
 
 ```go
 var Module = fx.Module(
-	"<module-name>",
+	"user",
 	fx.Provide(
-		usecase.NewEntityCreateUseCase,
+		usecase.NewUserCreateUseCase,
 		provideDecoratedUseCases,
 	),
 )
@@ -182,128 +236,45 @@ var Module = fx.Module(
 type decorateUseCasesIn struct {
 	fx.In
 	UseCaseDecoratorFactory *ucdecorator.Factory
-	EntityCreateUseCase     *usecase.EntityCreateUseCase
+	UserCreateUseCase       *usecase.UserCreateUseCase
 }
 
 type decorateUseCasesOut struct {
 	fx.Out
-	EntityCreateUseCase ucdecorator.UseCase[usecase.EntityCreateInput, usecase.EntityCreateOutput]
+	UserCreateUseCase ucdecorator.UseCase[usecase.UserCreateInput, usecase.UserCreateOutput]
 }
 
 func provideDecoratedUseCases(in decorateUseCasesIn) decorateUseCasesOut {
 	return decorateUseCasesOut{
-		EntityCreateUseCase: ucdecorator.Wrap(in.UseCaseDecoratorFactory, in.EntityCreateUseCase),
+		UserCreateUseCase: ucdecorator.Wrap(
+			in.UseCaseDecoratorFactory,
+			in.UserCreateUseCase,
+		),
 	}
 }
 ```
 
-## Anti-Patterns
+**Done when:** every new dependency can be constructed by the local composition
+mechanism, and application consumers receive the same boundary type as their
+peer operations.
 
-### Missing input validation — BAD
-```go
-func (uc *UserCreateUseCase) Execute(ctx context.Context, input UserCreateInput) (UserCreateOutput, error) {
-	// BAD: skipped uc.validator.Struct(input)
-	user, err := uc.userRepository.Create(ctx, ...)
-```
+## 6. Prove the operation
 
-### Unlogged error — BAD
-```go
-// BAD
-entity, err := uc.entityRepository.FindByID(ctx, input.ID)
-if err != nil {
-	return EntityGetOutput{}, err
-}
+Add or update focused behavioral tests at the nearest existing seam. Cover the
+successful result, validation or malformed input when applicable, each material
+business outcome, and every collaborator failure introduced or changed.
 
-// GOOD
-entity, err := uc.entityRepository.FindByID(ctx, input.ID)
-if err != nil {
-	uc.logger.Error("error finding entity by id", logger.Error(err))
-	return EntityGetOutput{}, err
-}
-```
+Format changed Go files. Run the narrowest documented command that exercises the
+changed package or test; use broader lint or nil analysis when the repository
+documents it as required. If validation cannot run, report the exact command,
+failure, and concrete prerequisite instead of claiming a pass.
 
-### Raw errors — BAD
-```go
-// BAD
-return UserCreateOutput{}, errors.New("email already in use")
+**Done when:** focused tests demonstrate the selected contract, formatting is
+clean, and the reported validation result is reproducible.
 
-// GOOD
-return UserCreateOutput{}, errs.ErrEmailAlreadyInUse
-```
+## Completion check
 
-### Tracing/metrics inside use case — BAD
-```go
-// BAD: observability belongs in ucdecorator
-ctx, span := trace.Span(ctx, "UserCreateUseCase.Execute")
-defer span.End()
-```
-
-### Concrete type injection — BAD
-```go
-// BAD
-type UserCreateUseCase struct {
-	userRepository *repository.UserRepository
-}
-
-// GOOD
-type UserCreateUseCase struct {
-	userRepository ports.UserRepository
-}
-```
-
-### Wrong naming — BAD
-```go
-// BAD: Input/Output not following NounAction pattern
-type CreateUserInput struct {}
-type CreateUserOutput struct {}
-
-// GOOD
-type UserCreateInput struct {}
-type UserCreateOutput struct {}
-```
-
-### Redundant comments — BAD
-```go
-// BAD
-// Execute executes the user create use case.
-func (uc *UserCreateUseCase) Execute(...) {}
-
-// NewUserCreateUseCase creates a new UserCreateUseCase.
-func NewUserCreateUseCase(...) *UserCreateUseCase {}
-```
-
-<critical>Every error must be logged.</critical>
-<critical>
-Each use case must define its own Input and Output types in its own use case file, and those boundary types must be self-contained.
-</critical>
-<critical>Input/Output MUST NOT embed or reference shared module DTOs/models</critical>
-<critical>Input/Output MUST declare all fields explicitly, either directly or via nested structs declared in the same use case file.</critical>
-<critital>Input/Output types are private to that use case contract and MUST NOT be reused by other use cases.</critical>
-<critical>Shared shapes belong in repository/service/domain layers, not in use case boundary contracts.</critical>
-<critical>Input/Output types must not have json tags</critical>
-
-## Critical Rules
-
-1. **Naming**: Struct `NounActionUseCase`, Input `NounActionInput`, Output `NounActionOutput`. No exceptions.
-2. **Both Input and Output**: Always define both structs, even if empty.
-3. **Validate first**: `uc.validator.Struct(input)` is always the first call in `Execute`.
-4. **Log every error**: `uc.logger.Error(msg, logger.Error(err))` before every error return.
-5. **Typed errors**: Return errors from module `errs` package — never `errors.New(...)`.
-6. **No tracing/metrics**: Observability handled by `ucdecorator` externally.
-7. **Port interfaces**: Module deps must be `ports.*` interfaces.
-8. **Single Execute**: One public method `Execute(ctx context.Context, input Input) (Output, error)`.
-9. **Constructor returns pointer**: `NewNounActionUseCase(...)` returns `*NounActionUseCase`.
-10. **No standalone functions**: Logic in `Execute` or private methods only.
-11. **No redundant comments**: Do not restate method/constructor names.
-12. **Fx decoration**: Wrap with `ucdecorator.Wrap` via `fx.In`/`fx.Out` structs.
-
-## Anti-pattern: Standalone functions
-
-Standalone functions at the package level are forbidden when a struct with methods exists in the file. They pollute the package namespace, can collide with helpers in other service files, and fragment logic that belongs to the struct.
-
-## Workflow
-
-1. Create `usecase/<noun>_<action>_usecase.go`
-2. Define Input (with validate tags), Output, struct, constructor, `Execute`
-3. Add Fx wiring to module's `fx.go` (constructor + `provideDecoratedUseCases`)
-4. Run `make lint` and `make nilaway` to verify the use case follows all patterns and has no nil pointer risks.
+Verify every preceding **Done when** criterion before handing off. Report the
+selected local or baseline shape, changed artifacts, observed conventions, and
+the exact validation command and result. State any unresolved ambiguity or
+validation prerequisite plainly.
