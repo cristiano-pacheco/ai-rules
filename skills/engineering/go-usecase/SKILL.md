@@ -1,6 +1,6 @@
 ---
 name: go-usecase
-description: Go use-case application policy. Use when implementing one entity operation that owns orchestration, authorization decisions, state transitions, or business validation between application inputs/outputs and consumer-owned ports. Don't use for HTTP transport mapping, persistence or infrastructure adapters, reusable validator adapters, or generic telemetry.
+description: Go use-case application policy. Use when implementing one entity operation that owns orchestration, authorization decisions, state transitions, or business validation between application inputs/outputs and consumer-owned ports.
 ---
 
 # Go UseCase
