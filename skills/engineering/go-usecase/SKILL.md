@@ -1,20 +1,20 @@
 ---
 name: go-usecase
-description: Local Go use-case implementation. Use when creating or changing an application operation that coordinates domain work. Don't use for reusable domain services, HTTP handlers, persistence adapters, validators, or mappers.
+description: Go use-case application policy. Use when implementing one entity operation that owns orchestration, authorization decisions, state transitions, or business validation between application inputs/outputs and consumer-owned ports. Don't use for HTTP transport mapping, persistence or infrastructure adapters, reusable validator adapters, or generic telemetry.
 ---
 
 # Go UseCase
 
+Implement **application policy**: one entity operation that owns orchestration,
+authorization decisions, state transitions, and applicable business validation.
+Use cases convert between application types and consumer-owned ports; transport,
+persistence, and provider representations stay outside that boundary.
 
-Build one **local** application operation at a time. Local evidence decides the
-application boundary, dependencies, validation, composition, and test command.
-When the target has no established pattern, use the baseline in this skill.
-
-## Baseline naming
+## Required naming
 
 For noun `User` and action `Create`, use these names:
 
-| Element | Baseline |
+| Element | Name |
 | --- | --- |
 | File | `internal/modules/<module>/usecase/user_create_usecase.go` |
 | Struct | `UserCreateUseCase` |
@@ -23,16 +23,16 @@ For noun `User` and action `Create`, use these names:
 | Constructor | `NewUserCreateUseCase` |
 | Entry point | `Execute` |
 
-`NounAction` is deliberate: keep the noun before the action in every generated
-identifier. Use the exact module-local equivalent only when comparable local
-operations establish a different convention.
+`EntityOperation` is deliberate: keep the entity before the operation in every
+identifier. A different shape requires an ADR that identifies the excepted
+coding-standard rule, owner, and removal condition or due date.
 
-## Baseline implementation
+## Canonical implementation
 
 Resolve import paths from the target module's `go.mod`; do not copy a project
 path from this example. Import `context`, the established logger and validator,
-and the target module's `model` and `ports` packages. With those baseline
-conventions, a `UserCreate` operation has this canonical shape:
+and the target module's `model` and `ports` packages. A `UserCreate` operation
+has this canonical shape:
 
 The `validate:"..."` field-tag syntax is defined by
 [`github.com/go-playground/validator`](https://github.com/go-playground/validator),
@@ -106,47 +106,44 @@ func (uc *UserCreateUseCase) Execute(
 }
 ```
 
-## 1. Inspect the local contract
+## 1. Inspect the operation contract
 
 Inspect before editing:
 
 - the target module, its `go.mod`, and relevant domain context and ADRs;
-- the closest comparable application operation and its focused tests;
+- the closest comparable application operation and its integration tests;
 - its input/output ownership, naming, constructor, public entry point, and
   private-helper convention;
 - every port, model, domain service, validator, typed error, and mapper the
   operation needs; and
-- the composition root and the narrowest documented validation command.
+- the module's `fx.go`, the cross-module dependencies, the matching integration
+  test, and the required quality gates.
 
 **Done when:** the agent can name the owning package, comparable operation,
 required collaborators, validation mechanism, composition mechanism, and
-focused command from repository evidence.
+integration-test seam from repository evidence.
 
 ## 2. Choose the operation shape
 
-Match the established application boundary. A module using function-based
-commands, handlers, or another validation mechanism keeps that shape; adding a
-new `UseCase`, `Execute`, Fx provider, validator, or decorator requires local
-evidence or an explicit request.
+Use the required `EntityOperationUseCase` shape: one operation file,
+`EntityOperationInput`, `EntityOperationOutput`, a pointer-returning constructor,
+and `Execute(ctx context.Context, input EntityOperationInput) (EntityOperationOutput, error)`.
+Inject abstractions required by the operation; the consumer owns their `ports.*`
+interfaces.
 
-When no comparable boundary exists, use this baseline:
+Add only directly necessary companion changes: a consumer-owned port, typed
+expected error, mapper, Fx registration, or integration test. An architectural
+exception requires an ADR before merging; it does not justify a competing
+application boundary.
 
-- place one operation in `usecase/<noun>_<action>_usecase.go`;
-- expose `NounActionUseCase.Execute(ctx context.Context, input NounActionInput) (NounActionOutput, error)`;
-- inject module collaborators as `ports.*` interfaces; and
-- construct the use case with `NewNounActionUseCase(...) *NounActionUseCase`.
+**Done when:** exactly one required operation shape is selected and every
+companion change is necessary to implement its policy.
 
-If inspection leaves a material choice unresolved, stop after reporting the
-evidence and request direction. Do not select an architecture by familiarity.
+## 3. Define the application contract
 
-**Done when:** one local or baseline operation shape is selected and every
-companion change is necessary to make that shape work.
-
-## 3. Define a private operation contract
-
-Define both `NounActionInput` and `NounActionOutput` in the operation file,
+Define both `EntityOperationInput` and `EntityOperationOutput` in the operation file,
 including an empty struct when the operation has no fields. Treat them as a
-private contract of that operation:
+contract owned by that application operation:
 
 - declare every field explicitly, including fields of any nested type declared
   in the same file;
@@ -158,27 +155,30 @@ private contract of that operation:
 
 Map at boundaries explicitly: input to domain or persistence values before a
 collaborator call, and collaborator results to output before success returns.
+HTTP DTOs, GORM models, and provider SDK types never cross this boundary.
 
-For a tag-based local validator, put validation tags on the input and make
-`uc.validator.Struct(input)` the first call in `Execute`. Include
-`validator.Validator` and `logger.Logger` in the baseline constructor and
-struct; use the locally established equivalents when the module proves another
-mechanism.
+Put simple constraints on input fields as Go validator tags and make
+`uc.validator.Struct(input)` the first call in `Execute`. Put reusable business
+validation behind a consumer-owned port and implement it in `validator/` only
+when it has a real adapter responsibility. Include `validator.Validator` and
+`logger.Logger` in the constructor and struct.
 
 **Done when:** the operation owns complete input/output types and its dependency
-fields are interfaces or locally established shared infrastructure, never a
-concrete module adapter.
+fields are abstractions or shared infrastructure, never a concrete module
+adapter, GORM handle, HTTP type, or provider client.
 
-## 4. Implement a narrow `Execute`
+## 4. Implement the policy in `Execute`
 
-Keep the application operation as orchestration:
+Keep the application operation as policy:
 
-1. validate input using the selected local mechanism;
-2. perform the required domain checks and port/service calls;
-3. translate expected business outcomes to module typed errors; and
-4. return an explicitly mapped output.
+1. validate simple input constraints using the Go validator mechanism;
+2. make authorization decisions, state transitions, and business validations
+   that belong to the operation;
+3. orchestrate the required consumer-owned port calls;
+4. translate expected business outcomes to module typed errors; and
+5. return an explicitly mapped output.
 
-The baseline use case has one public `Execute` method. Keep supporting logic as
+The use case has one public `Execute` method. Keep supporting logic as
 private methods on the use-case struct.
 
 Return terminal errors deliberately. Before each error return, log it through
@@ -186,8 +186,9 @@ the operation's logger with `logger.Error(err)` when that is the local logging
 convention. For expected absence used to decide a business rule, distinguish the
 known absence from an unexpected lookup failure, then log the error ultimately
 returned. Preserve error identity with `errors.Is` when the local error model
-uses it. Return a typed module error from `errs` for a business outcome rather
-than synthesizing a raw error string.
+uses it. Return a typed module error from `errs` for an expected business
+outcome; preserve an unexpected technical error unless operation context is
+necessary. Never synthesize a raw error string for an expected condition.
 
 For example, use a known not-found error only as the branch condition; all other
 lookup failures remain terminal:
@@ -205,24 +206,31 @@ if existingUser.ID != 0 {
 }
 ```
 
-When the module uses `ucdecorator` for observability, leave tracing and metrics
-at that decorator boundary. Do not duplicate that concern inside `Execute`.
+Leave generic execution outcome and duration telemetry to `ucdecorator`. Emit
+logs, metrics, or traces from `Execute` only for meaningful domain decisions,
+business events, or domain failures; I/O spans belong to the adapter.
+
+Call another module only through its injected exported use-case API:
+`*othermoduleusecase.EntityOperationUseCase.Execute(ctx, input)`. Never reach
+across that boundary to a foreign repository, model, HTTP package, mapper,
+validator, errors package, or Fx wiring.
 
 **Done when:** every success path returns a complete output, every terminal
-error has the local logging and typed-error treatment, and all collaborator
+error has the required logging and typed-error treatment, and all collaborator
 calls use the request context when their local signatures accept one.
 
-## 5. Compose without changing the boundary
+## 5. Register the policy in Fx
 
-Register only the construction required by the observed composition root. Keep
-the raw use-case constructor available to composition code and unit tests.
+Register the raw constructor and decorated use case in the module's `fx.go`, the
+only composition root. Keep the raw constructor available to composition code
+and integration tests.
 
-For the established Fx plus `ucdecorator` variant, add the constructor to
-`fx.Provide` and extend the module's single decorated-use-case provider. Its
-`fx.In` field receives `*usecase.NounActionUseCase`; its `fx.Out` field exports
-`ucdecorator.UseCase[usecase.NounActionInput, usecase.NounActionOutput]`; the
-provider returns `ucdecorator.Wrap(factory, in.NounActionUseCase)`. Preserve the
-existing field and provider naming in that module.
+Add the constructor to `fx.Provide` and extend the module's single
+decorated-use-case provider. Its `fx.In` field receives
+`*usecase.EntityOperationUseCase`; its `fx.Out` field exports
+`ucdecorator.UseCase[usecase.EntityOperationInput, usecase.EntityOperationOutput]`;
+the provider returns `ucdecorator.Wrap(factory, in.EntityOperationUseCase)`.
+Preserve the existing field and provider naming in that module.
 
 ```go
 var Module = fx.Module(
@@ -254,27 +262,29 @@ func provideDecoratedUseCases(in decorateUseCasesIn) decorateUseCasesOut {
 }
 ```
 
-**Done when:** every new dependency can be constructed by the local composition
-mechanism, and application consumers receive the same boundary type as their
-peer operations.
+**Done when:** every new dependency can be constructed by Fx, and application
+consumers receive the decorated operation boundary.
 
-## 6. Prove the operation
+## 6. Prove the policy at its boundary
 
-Add or update focused behavioral tests at the nearest existing seam. Cover the
-successful result, validation or malformed input when applicable, each material
-business outcome, and every collaborator failure introduced or changed.
+Add or update an integration test under
+`test/integration/modules/<module>/usecase/`. Exercise real validation,
+repositories, migrations, and business flow. Fake only an uncontrolled external
+provider through its consumer-owned port. Cover the successful result, malformed
+input when applicable, every material business outcome, and every collaborator
+failure introduced or changed.
 
-Format changed Go files. Run the narrowest documented command that exercises the
-changed package or test; use broader lint or nil analysis when the repository
-documents it as required. If validation cannot run, report the exact command,
-failure, and concrete prerequisite instead of claiming a pass.
+Run `make lint`, `make test`, and `make test-integration`. A nonzero result
+blocks the change. If infrastructure prevents an integration command, report the
+exact prerequisite and result; documentation-only changes may mark the gates
+`N/A` with an explanation.
 
-**Done when:** focused tests demonstrate the selected contract, formatting is
-clean, and the reported validation result is reproducible.
+**Done when:** the integration test demonstrates the policy and all required
+quality gates have reproducible reported results.
 
 ## Completion check
 
 Verify every preceding **Done when** criterion before handing off. Report the
-selected local or baseline shape, changed artifacts, observed conventions, and
-the exact validation command and result. State any unresolved ambiguity or
-validation prerequisite plainly.
+operation policy, changed artifacts, boundary conversions, changed ports, and
+the exact quality-gate results. State any ADR, exception, or validation
+prerequisite plainly.
