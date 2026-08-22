@@ -1,0 +1,5 @@
+interface:
+  display_name: "ai-setup-skills"
+  short_description: "Configure a repo for the skills"
+policy:
+  allow_implicit_invocation: false

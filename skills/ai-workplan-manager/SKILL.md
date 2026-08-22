@@ -1,7 +1,6 @@
 ---
 name: ai-workplan-manager
 description: Resolve or complete one task in an AI Tools vault workplan.
-disable-model-invocation: true
 ---
 
 Manage the file contract for one feature workplan. This skill owns task lookup and
