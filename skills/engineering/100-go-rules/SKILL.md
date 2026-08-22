@@ -7,10 +7,16 @@ description: Apply a compact, Go-version-aware rulebook derived from the 100 num
 
 Use this skill as a compact rule engine, not as a book to read end-to-end.
 
-## Operating baseline
+## Selection and operating baseline
 
-- Assume Go 1.26 when no project version is available.
-- Prefer the `go` version declared by `go.mod` for language semantics when available.
+- Select this global reference for material Go-language or quality decisions.
+  It complements a specialist skill when needed; specialists do not invoke it
+  mechanically.
+- Locate the target module's `go.mod` before applying version-dependent
+  guidance. Use its `go` directive for language semantics when present.
+- When no target module or `go` directive is available, use Go 1.26 as the
+  fallback baseline. Do not describe that fallback as a discovered project
+  version.
 - Treat user-specified version constraints as authoritative.
 - Read `references/version-notes-go1.26.md` when a finding touches version-sensitive behavior or the project targets a version other than 1.26.
 - Prefer current Go semantics, compiler/runtime evidence, and standard-library behavior over historical advice.
@@ -40,6 +46,17 @@ Follow these loading rules:
 3. For a code review, use the colocated examples only as diagnostic/remediation aids; do not mechanically copy them into the response.
 4. For a full audit against all 100 rules, evaluate domain files sequentially rather than preloading all eleven.
 5. Read `references/version-notes-go1.26.md` only for version-sensitive findings or compatibility analysis.
+
+## Execution and completion
+
+1. Determine the effective Go version and select only the applicable domain
+   reference(s).
+2. Apply the relevant rules to the concrete code or design decision; validate
+   claims against local code and use focused tests, benchmarks, compiler, or
+   runtime evidence when available.
+3. Report the effective version (and whether it was discovered or a fallback),
+   loaded domain(s), material guidance, and validation evidence. State when no
+   validation command was available.
 
 ## Applying rules
 
