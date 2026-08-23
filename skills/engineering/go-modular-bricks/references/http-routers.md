@@ -10,9 +10,36 @@ response mapping.
 
 ## Structure
 
-A router holds handler pointers, its constructor returns a pointer, and its
-`Setup(server *chi.Server)` method gets the Chi router from `server.Router()`
-before registering routes.
+Create `internal/modules/<module>/http/chi/router/<resource>_router.go` in
+`package router`. Keep imports, router type, pointer constructor, then the
+exact `Setup(server *chi.Server)` method. A router holds handler pointers only.
+It gets the Chi router from `server.Router()` before registering routes.
+
+```go
+package router
+
+import (
+	"github.com/cristiano-pacheco/bricks/pkg/http/server/chi"
+	"example.com/project/internal/modules/catalog/http/chi/handler"
+)
+
+type ProductRouter struct {
+	handler *handler.ProductHandler
+}
+
+func NewProductRouter(handler *handler.ProductHandler) *ProductRouter {
+	return &ProductRouter{handler: handler}
+}
+
+func (r *ProductRouter) Setup(server *chi.Server) {
+	router := server.Router()
+	router.Get("/api/v1/products", r.handler.HandleListProducts)
+	router.Get("/api/v1/products/{id}", r.handler.HandleGetProduct)
+	router.Post("/api/v1/products", r.handler.HandleCreateProduct)
+	router.Put("/api/v1/products/{id}", r.handler.HandleUpdateProduct)
+	router.Delete("/api/v1/products/{id}", r.handler.HandleDeleteProduct)
+}
+```
 
 ## HTTP contract
 
@@ -35,37 +62,30 @@ Register the concrete router from the owning module's Fx composition root as a
 Bricks route contribution. The server discovers the route through its route
 group rather than a manual registration outside the module.
 
+```go
+fx.Provide(
+	fx.Annotate(
+		router.NewProductRouter,
+		fx.As(new(chi.Route)),
+		fx.ResultTags(`group:"routes"`),
+	),
+)
+```
+
 ## Naming
 
 Name the type `<Resource>Router`, its constructor `New<Resource>Router`, and
 its file `<resource>_router.go`. Use the matching `Handle...` method from the
 handler when registering a route.
 
-## Examples
+## Check before finishing
 
-### Good
-
-```go
-import "github.com/cristiano-pacheco/bricks/pkg/http/server/chi"
-
-type ProductRouter struct {
-	handler *handler.ProductHandler
-}
-
-func (r *ProductRouter) Setup(server *chi.Server) {
-	router := server.Router()
-	router.Get("/api/v1/products", r.handler.HandleListProducts)
-	router.Post("/api/v1/products", r.handler.HandleCreateProduct)
-}
-```
-
-### Bad
-
-```go
-func (r *ProductRouter) Setup(server *chi.Server) {
-	router := server.Router()
-	router.Post("/products", func(w http.ResponseWriter, request *http.Request) {
-		r.db.Exec("DELETE FROM products")
-	})
-}
-```
+- The router file has the exact `Setup(server *chi.Server)` signature and only
+  handler-pointer state.
+- Every registration uses a direct `Handle...` method, a versioned plural path,
+  and the conventional HTTP method.
+- A route group names and scopes its middleware beside the registrations it
+  affects.
+- `fx.go` exposes the router once as `chi.Route` with `group:"routes"`.
+- A changed route has handler coverage for its success and error boundary; add
+  an integration test when the route changes the composed HTTP flow.

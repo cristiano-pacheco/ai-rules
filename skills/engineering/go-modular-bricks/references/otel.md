@@ -55,11 +55,11 @@ nor a new module error or locale entry.
 
 The decorated use-case boundary already owns generic execution tracing,
 duration, and outcome telemetry. Put operation-level spans in the I/O services
-and adapters that do the work. Create a service in
-`internal/modules/<module>/service/<name>_service.go` when a use case needs a
-reusable capability; read [the service recipe](services.md) in full for its port,
-constructor, interface assertion, and Fx binding. Use the span naming rule
-above without event detail in the name.
+and adapters that do the work. A reusable service belongs in
+`internal/modules/<module>/service/<name>_service.go`; its consumer-owned port,
+pointer constructor, interface assertion, and Fx binding follow the selected
+service contract. Use the span naming rule above without event detail in the
+name.
 
 ```go
 func (s *CatalogRefreshService) Execute(

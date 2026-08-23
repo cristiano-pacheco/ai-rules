@@ -68,8 +68,9 @@ only route to that contract.
 | The change adds or alters use-case duration or outcome metrics. | Read `references/prometheus.md` in full. |
 | The selected flow cannot follow one of these contracts. | Read `references/adr-exceptions.md` in full before choosing the exception. |
 
-*Done when:* every selected contract has been read in full and no unselected
-contract has been loaded.
+*Done when:* every selected contract has been read in full through this table,
+every bundled reference has one direct pointer here, and no reference depends
+on another reference for instructions.
 
 ## 3. Implement and prove the flow
 

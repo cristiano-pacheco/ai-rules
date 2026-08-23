@@ -1,40 +1,16 @@
 # HTTP DTOs
 
-## Transport contracts
+## Recipe: define one transport contract
 
-Put HTTP request and response contracts in the owning module's `http/dto/`
-package. A request DTO describes JSON accepted by one endpoint. A response DTO
-describes JSON returned by one endpoint. Give every exported JSON field its
-wire name with a `json` tag.
-
-Keep DTOs free of business methods, persistence concerns, and provider types.
-HTTP DTOs do not become use-case inputs or outputs, even when their fields
-match. A GORM model never reaches this package.
-
-Represent omission, `null`, zero, and empty string deliberately when the
-endpoint needs to distinguish them. Parse external enum strings and other
-constrained values before application policy consumes them.
-
-## Mapping
-
-After decoding, map the request DTO explicitly to the operation input. Map the
-operation output explicitly to the response DTO before encoding it. A pure
-mapping function may live with the module's mapping code when it is reused; a
-handler may keep a small mapping local when that is its only use.
-
-Transport validation covers HTTP-shaped input: malformed JSON, path and query
-syntax, supported media, and invalid external encodings. The use case decides
-whether a valid transport value is allowed by business policy.
-
-For collections, map query values to a dedicated application input and map
-both items and collection metadata to a response DTO. Do not pass query values
-or a transport pagination type into a repository.
-
-## Examples
-
-### Good
+Create `internal/modules/<module>/http/dto/<resource>_dto.go` in `package dto`.
+Put request types first, then response types. Name a body accepted by an
+operation `<Action><Resource>Request` and a body returned by an operation
+`<Resource>Response` or `<Action><Resource>Response`. Give every exported wire
+field an exact `json` tag.
 
 ```go
+package dto
+
 type CreateProductRequest struct {
 	Name string `json:"name"`
 }
@@ -43,18 +19,79 @@ type ProductResponse struct {
 	ID   uint64 `json:"id"`
 	Name string `json:"name"`
 }
-
-func toCreateProductInput(request CreateProductRequest) usecase.CreateProductInput {
-	return usecase.CreateProductInput{Name: request.Name}
-}
 ```
 
-### Bad
+A DTO carries no business methods, GORM tag, persistence model, provider SDK
+value, or application policy. HTTP DTOs never become use-case inputs or
+outputs, even when fields match. Use pointers only when the HTTP contract must
+distinguish an omitted value from `null`, an empty string, or a zero value.
+
+## Recipe: map at the transport boundary
+
+Decode the request into its DTO with the established request helper. Check URL,
+query, content-type, malformed-body, and external-value syntax at this boundary.
+Map the DTO to the operation input explicitly. Set `ctx := r.Context()` and
+call the decorated use case with `ctx`. Map its output to a response DTO before
+encoding it. Keep a single-use mapping in its handler; move a reused or
+substantial pure mapping to
+`internal/modules/<module>/mapper/<resource>_mapper.go`.
 
 ```go
 func (h *ProductHandler) HandleCreateProduct(w http.ResponseWriter, r *http.Request) {
-	var product model.ProductModel
-	_ = json.NewDecoder(r.Body).Decode(&product)
-	_ = h.createProduct.Execute(r.Context(), product)
+	ctx := r.Context()
+
+	var request dto.CreateProductRequest
+	if err := request.ReadJSON(w, r, &request); err != nil {
+		h.logger.Error("decode create product", logger.Error(err))
+		h.errorHandler.Error(w, err)
+		return
+	}
+
+	input := usecase.ProductCreateInput{Name: request.Name}
+	output, err := h.productCreate.Execute(ctx, input)
+	if err != nil {
+		h.logger.Error("create product", logger.Error(err))
+		h.errorHandler.Error(w, err)
+		return
+	}
+
+	productResponse := dto.ProductResponse{ID: output.ID, Name: output.Name}
+	if err := response.JSON(w, http.StatusCreated, productResponse, http.Header{}); err != nil {
+		h.logger.Error("write create product response", logger.Error(err))
+		h.errorHandler.Error(w, err)
+		return
+	}
 }
 ```
+
+Use the established Bricks `request` and `response` packages unless the project
+has a local wrapper. The use case decides business validity, authorization, and
+state transitions. It receives parsed application values, never a raw body,
+query string, path value, HTTP request, response DTO, or GORM model.
+
+## Recipe: map a collection contract
+
+Map each accepted query value to a dedicated list input and map collection
+items and promised metadata to a response DTO. Reject malformed query syntax
+before calling the use case. The repository receives only the application
+values it needs, never `url.Values` or a transport pagination type.
+
+```go
+type ProductListResponse struct {
+	Products []ProductResponse `json:"products"`
+	Page     int               `json:"page"`
+	PageSize int               `json:"page_size"`
+	Total    int64             `json:"total"`
+}
+```
+
+## Check before finishing
+
+- The DTO file is in the owning module's `http/dto/` package and its public
+  fields have exact JSON names.
+- Decoding, external syntax checks, and mapping happen in the inbound adapter.
+- Inputs and outputs remain application-owned types; models and provider values
+  do not cross the HTTP boundary.
+- Unit-test reused mappers. Test HTTP decoding, malformed transport input,
+  response mapping, status, and rendered error behavior when the handler
+  changes.
