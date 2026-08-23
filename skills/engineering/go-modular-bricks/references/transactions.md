@@ -104,6 +104,22 @@ func (p *TransactionProvider) WithTX(
 }
 ```
 
+For a read/write database topology, replace only the stored wrapper and
+constructor. `CreateTX` and `WithTX` keep the same bodies and always begin on
+the write database.
+
+```go
+type TransactionProvider struct {
+	*database.ProjectWriteDB
+}
+
+var _ ports.TransactionProvider = (*TransactionProvider)(nil)
+
+func NewTransactionProvider(db *database.ProjectWriteDB) *TransactionProvider {
+	return &TransactionProvider{ProjectWriteDB: db}
+}
+```
+
 ```go
 fx.Provide(
 	fx.Annotate(

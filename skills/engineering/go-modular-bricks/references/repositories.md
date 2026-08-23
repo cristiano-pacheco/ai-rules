@@ -85,6 +85,94 @@ fx.Provide(
 )
 ```
 
+## Variation: split read and write databases
+
+`*database.ProjectDB` is the normal repository dependency. It serves reads,
+writes, transactions, and migrations through one configured primary database.
+Introduce `*database.ProjectReadDB` and `*database.ProjectWriteDB` only when
+the deployment has distinct read and write connections, such as a read replica
+and a primary. A read database can be stale. Do not add this split merely to
+label ordinary queries.
+
+Embed both wrappers and select one explicitly. Both promote `DB`, so `r.DB` is
+ambiguous and must not appear in a split repository. Read-only methods use
+`r.ProjectReadDB.DB`; creates, updates, deletes, local transactions, and a
+read that must observe a preceding write use `r.ProjectWriteDB.DB`.
+
+```go
+type InvoiceRepository struct {
+	*database.ProjectReadDB
+	*database.ProjectWriteDB
+}
+
+var _ ports.InvoiceRepository = (*InvoiceRepository)(nil)
+
+func NewInvoiceRepository(
+	readDB *database.ProjectReadDB,
+	writeDB *database.ProjectWriteDB,
+) *InvoiceRepository {
+	return &InvoiceRepository{
+		ProjectReadDB:  readDB,
+		ProjectWriteDB: writeDB,
+	}
+}
+
+func (r *InvoiceRepository) FindByID(
+	ctx context.Context,
+	id uint64,
+) (model.InvoiceModel, error) {
+	ctx, span := trace.Span(ctx, "InvoiceRepository.FindByID")
+	defer span.End()
+
+	invoice, err := gorm.G[model.InvoiceModel](r.ProjectReadDB.DB).
+		Where("id = ?", id).
+		Limit(1).
+		First(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.InvoiceModel{}, brickserrs.ErrRecordNotFound
+		}
+		return model.InvoiceModel{}, err
+	}
+	return invoice, nil
+}
+
+func (r *InvoiceRepository) Create(
+	ctx context.Context,
+	invoice model.InvoiceModel,
+) (model.InvoiceModel, error) {
+	ctx, span := trace.Span(ctx, "InvoiceRepository.Create")
+	defer span.End()
+
+	err := gorm.G[model.InvoiceModel](r.ProjectWriteDB.DB).Create(ctx, &invoice)
+	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return model.InvoiceModel{}, errs.ErrInvoiceNumberConflict
+		}
+		return model.InvoiceModel{}, err
+	}
+	return invoice, nil
+}
+
+func (r *InvoiceRepository) WithTX(
+	ctx context.Context,
+	fn func(tx *gorm.DB) error,
+) error {
+	ctx, span := trace.Span(ctx, "InvoiceRepository.WithTX")
+	defer span.End()
+
+	return r.ProjectWriteDB.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(tx.WithContext(ctx))
+	})
+}
+```
+
+Keep `CreateTX` and `UpdateTX` unchanged: they use the callback's `tx`, not a
+read or write wrapper. When an update reloads the model before returning it,
+reload through `r.ProjectWriteDB.DB` so replica lag cannot return stale state.
+`TransactionProvider` also receives `*database.ProjectWriteDB` in this
+variation, because every transaction starts on the primary.
+
 ## Recipe: select the query shape
 
 Use `gorm.G[model.XxxModel](r.DB)` for simple lookups, creates, updates, and
@@ -401,6 +489,10 @@ test harness can induce one.
 - Single-record reads limit before first; targeted mutations check affected rows.
 - A bulk cleanup may delete zero rows without error.
 - The constructor, assertion, port comment, and Fx binding match the adapter.
+- A read/write split selects an explicit wrapper for every query; no split
+  repository calls `r.DB`.
+- Reads that must observe a preceding write, migrations, and transactions use
+  the write database.
 - `WithTX` alone creates the adapter-local transaction; every `*TX` method
   receives the callback transaction and uses its caller context.
 - The callback returns the first failure; integration coverage proves rollback
