@@ -39,6 +39,15 @@ only route to that contract.
 | The change adds or alters module-owned HTTP middleware. | Read `references/http-middleware.md` in full. |
 | The change lists a collection with pagination, ordering, or filters. | Read `references/pagination-filtering.md` in full. |
 | The requested HTTP change includes API documentation. | Read `references/api-documentation.md` in full. |
+| The change adds or changes application policy, a business operation, or a call into another module. | Read `references/use-cases.md` in full. |
+| The change adds or changes an outbound dependency contract used by application policy. | Read `references/ports.md` in full. |
+| The operation must make work across multiple repositories atomic, or a repository owns one local transaction. | Read `references/transactions.md` in full. |
+| The change defines or changes application input, output, or internal data shared by application collaborators. | Read `references/application-dtos.md` in full. |
+| The change adds or changes an expected business error, its translation, or its locale entry. | Read `references/errors.md` in full. |
+| The change adds reusable business validation beyond operation input tags. | Read `references/validators.md` in full. |
+| The change adds or changes a constrained domain value. | Read `references/enums.md` in full. |
+| The change maps values between representations outside a small, single-use boundary mapping. | Read `references/mappers.md` in full. |
+| The change adds a reusable pure or I/O-backed capability consumed by application policy. | Read `references/services.md` in full. |
 | The selected flow cannot follow one of these contracts. | Read `references/adr-exceptions.md` in full before choosing the exception. |
 
 *Done when:* every selected contract has been read in full and no unselected
