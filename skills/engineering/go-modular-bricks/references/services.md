@@ -1,78 +1,144 @@
 # Services
 
-## Shape
+## Choose the service shape
 
 Use a service for a reusable, single-responsibility capability consumed by use
-cases or other services. A pure service needs only its implementation. An I/O
-service may need a module DTO, a consumer-owned port in `ports/`, and a concrete
-implementation in `service/`. Create only the artifacts that responsibility
-needs.
+cases or other services. A pure capability needs only
+`internal/modules/<module>/service/<name>_service.go`. An I/O capability uses a
+consumer-owned port in `ports/`, an implementation in `service/`, and a `dto/`
+file when a service-specific input or output improves the contract.
 
-The implementation has its concrete type, interface assertion, pointer-returning
-constructor, and methods. The port describes purpose and non-obvious behavior.
-The implementation depends on ports, never concrete adapters.
+Use one `Execute` method with a dedicated DTO for a single action. Use named
+methods when one service has a coherent family of operations, such as password
+hashing. Do not manufacture a port for a private pure helper.
 
-## Examples
+## Recipe: I/O service
+
+Create the DTO only when the service needs a named shared shape:
 
 ```go
-type TokenIssuer interface {
-	Issue(ctx context.Context, subject string) (string, error)
-}
+package dto
 
-type SignedTokenIssuer struct {
-	signer ports.TokenSigner
+type SendEmailConfirmationInput struct {
+	UserID uint64
+	Token  string
+}
+```
+
+Create the documented port in
+`internal/modules/<module>/ports/send_email_confirmation_service.go`:
+
+```go
+package ports
+
+import (
+	"context"
+
+	"example.com/project/internal/modules/identity/dto"
+)
+
+// SendEmailConfirmationService sends the confirmation message for a registered
+// user. It returns a provider error when delivery fails.
+type SendEmailConfirmationService interface {
+	Execute(ctx context.Context, input dto.SendEmailConfirmationInput) error
+}
+```
+
+Create the implementation in
+`internal/modules/<module>/service/send_email_confirmation_service.go`. Its
+order is type, assertion, constructor, public methods, then private methods.
+
+```go
+package service
+
+import (
+	"context"
+
+	"github.com/cristiano-pacheco/bricks/pkg/logger"
+	"github.com/cristiano-pacheco/bricks/pkg/otel/trace"
+	"example.com/project/internal/modules/identity/dto"
+	"example.com/project/internal/modules/identity/ports"
+)
+
+type SendEmailConfirmationService struct {
+	sender ports.EmailSender
 	logger logger.Logger
 }
 
-var _ ports.TokenIssuer = (*SignedTokenIssuer)(nil)
+var _ ports.SendEmailConfirmationService = (*SendEmailConfirmationService)(nil)
 
-func NewSignedTokenIssuer(
-	signer ports.TokenSigner,
+func NewSendEmailConfirmationService(
+	sender ports.EmailSender,
 	logger logger.Logger,
-) *SignedTokenIssuer {
-	return &SignedTokenIssuer{signer: signer, logger: logger}
+) *SendEmailConfirmationService {
+	return &SendEmailConfirmationService{sender: sender, logger: logger}
+}
+
+func (s *SendEmailConfirmationService) Execute(
+	ctx context.Context,
+	input dto.SendEmailConfirmationInput,
+) error {
+	ctx, span := trace.Span(ctx, "SendEmailConfirmationService.Execute")
+	defer span.End()
+
+	if err := s.sender.Send(ctx, input.UserID, input.Token); err != nil {
+		s.logger.Error("SendEmailConfirmationService.Execute failed", logger.Error(err))
+		return err
+	}
+	return nil
 }
 ```
 
-## Variants
+Every I/O method takes `context.Context` first, starts the Bricks span with
+`StructName.MethodName`, and defers `span.End()`. A service that returns an
+error has a `logger logger.Logger` field, and logs each returned error directly
+before returning it with `s.logger.Error(..., logger.Error(err))`. Name the
+constructor parameter `logger`, never `log` or `l`.
 
-Use `Execute` with a dedicated input for one action. Use descriptive methods
-when one service groups related operations. Omit logger, configuration, and
-context from a pure capability.
+## Recipe: pure service
 
-## Ownership and wiring
-
-Fx binds a concrete I/O service to its consumer-owned port in the module's
-composition root. Put construction that can fail at startup in a constructor
-that returns `(*Service, error)`; normal constructors return only `*Service`.
-
-## I/O
-
-An I/O method receives `context.Context` first, creates the established adapter
-span, and ends it with `defer`. Name a constructor's logger parameter `logger`.
-
-## Error handling
-
-A fallible I/O service has the established logger and logs a returned error
-with its structured error field before propagating it:
+Use a dependency-free implementation for deterministic work such as hashing or
+formatting. Omit context, tracing, logger, configuration, and a port unless
+another module genuinely consumes it as a boundary.
 
 ```go
-if err != nil {
-	s.logger.Error("token issue failed", logger.Error(err))
-	return "", err
+type PasswordHashService struct{}
+
+func NewPasswordHashService() *PasswordHashService {
+	return &PasswordHashService{}
+}
+
+func (s *PasswordHashService) Generate(password []byte) ([]byte, error) {
+	return bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 }
 ```
 
-Keep helper behavior with the stateful service that owns it. Put reusable pure
-transformation in a mapper or pure service instead of duplicating helpers across
-service files.
+When the file has a stateful service type, keep helper logic as private methods
+on that type. Do not add standalone package functions beside service methods.
+Put an independent pure transformation in `mapper/` instead.
 
-## Structure
+## Wire and test
 
-Keep implementation helpers with their stateful service. Use a package-level
-function only for a pure, focused mapper or service with no stateful owner.
+Bind an I/O service in the module's `fx.go`:
 
-## Documentation
+```go
+fx.Provide(
+	fx.Annotate(
+		service.NewSendEmailConfirmationService,
+		fx.As(new(ports.SendEmailConfirmationService)),
+	),
+)
+```
 
-Document an exported service port's purpose and behavior. Omit implementation
-comments that only repeat the type, constructor, or method name.
+Test the port-visible behavior and errors. For an I/O service, fake or mock the
+consumer-owned dependency, assert it receives the input, and assert the error
+path returns the collaborator error. Do not test `trace.Span` internals.
+
+## Check before finishing
+
+- The service has one clear reusable responsibility.
+- I/O services have port, implementation, assertion, pointer constructor, span,
+  context, and logged error return.
+- Pure services omit I/O-only dependencies.
+- Implementation comments do not repeat type, constructor, or method names.
+- Fx binds the concrete service to the port.

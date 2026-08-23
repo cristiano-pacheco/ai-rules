@@ -1,41 +1,87 @@
 # Ports
 
-## Ownership
+## Recipe: define an outbound dependency
 
-Put an outbound port in the module whose application policy consumes it. The
-port says what that policy needs, not what a database, provider, or framework
-offers. Keep it narrow and name methods by the business operation they support.
+Create a port in `internal/modules/<module>/ports/` when application policy
+needs a replaceable collaborator that performs I/O or represents another
+boundary. The consumer owns the interface. Name the file after its role, such as
+`order_repository.go`, `token_issuer_service.go`, or `session_cache.go`.
+
+Write a complete comment on the exported interface. State its business purpose,
+its absence behavior, and any consistency rule that the method names do not
+show. The implementation gets no boilerplate comments.
 
 ```go
 package ports
 
-type InventoryReservation interface {
-	Reserve(ctx context.Context, itemID uint64, amount int) (Reservation, error)
+import (
+	"context"
+
+	"example.com/project/internal/modules/order/model"
+)
+
+// OrderRepository persists orders for application operations. FindByID returns
+// the module's not-found error when no order exists.
+type OrderRepository interface {
+	FindByID(ctx context.Context, id uint64) (model.OrderModel, error)
+	Create(ctx context.Context, order model.OrderModel) (model.OrderModel, error)
 }
 ```
 
-The module's adapter implements the port and maps between application values
-and its infrastructure values. The adapter constructor returns its concrete
-pointer. Fx binds that pointer to the port interface in the owning composition
-root.
+Use module-owned models and DTOs in signatures. Do not expose `*gorm.DB`, an
+HTTP request, a provider SDK type, a Redis client, adapter configuration, or
+another module's internal package. Put `context.Context` first whenever the
+method does I/O.
 
-## Contract rules
+## Match the port to its implementation category
 
-Use application-owned values in port signatures. Do not expose GORM types,
-HTTP types, provider SDK types, database handles, cache clients, or adapter
-configuration through a port. Accept `context.Context` as the first parameter
-when the operation can perform I/O.
+| Need | Port location and naming | Implementation location |
+| --- | --- | --- |
+| Persistence | `ports/<entity>_repository.go`, `XxxRepository` | `repository/<entity>_repository.go` |
+| External or reusable service | `ports/<name>_service.go`, `XxxService` | `service/<name>_service.go` |
+| Reusable validation | `ports/<name>_validator.go`, `XxxValidator` | `validator/<name>_validator.go` |
+| Redis storage | `ports/<name>_cache.go`, `XxxCache` | `cache/<name>_cache.go` |
 
-Document exported port interfaces when the purpose, consistency rule, absence
-behavior, or ownership is not obvious from their names. Keep comments on the
-contract, not as restatements on its implementation.
+Choose a narrow method named for the application need. A repository may expose
+`FindByEmail` when that is the query policy requires, rather than a generic
+query builder. A cache port exposes `Get`, `Set`, and `Delete`, not its TTL.
 
-Use an interface assertion for an exported adapter when it makes the binding
-clear:
+## Recipe: implement and bind the port
+
+The concrete adapter asserts the interface immediately below its type and its
+normal constructor returns a pointer.
 
 ```go
-var _ ports.InventoryReservation = (*InventoryGateway)(nil)
+type OrderRepository struct {
+	*database.ProjectDB
+}
+
+var _ ports.OrderRepository = (*OrderRepository)(nil)
+
+func NewOrderRepository(db *database.ProjectDB) *OrderRepository {
+	return &OrderRepository{ProjectDB: db}
+}
 ```
 
-Do not introduce a port for a pure, local helper. Keep that code in a mapper or
-pure service until it needs a replaceable collaborator.
+Bind the implementation in the owning module's `fx.go`:
+
+```go
+fx.Provide(
+	fx.Annotate(
+		repository.NewOrderRepository,
+		fx.As(new(ports.OrderRepository)),
+	),
+)
+```
+
+Inject `ports.OrderRepository` into the use case. Do not inject
+`*repository.OrderRepository`. A pure helper does not need a port. Put it in a
+mapper or a pure service until a real collaborator boundary appears.
+
+## Check before finishing
+
+- The port is in the consuming module and describes only what that policy needs.
+- Its signature contains application-owned values and context for I/O.
+- The interface comment explains non-obvious behavior.
+- The adapter has a compile-time assertion and pointer-returning constructor.
+- Fx binds the concrete type with `fx.As(new(ports.Xxx))`.

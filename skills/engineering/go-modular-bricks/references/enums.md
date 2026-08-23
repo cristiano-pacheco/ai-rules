@@ -1,15 +1,21 @@
 # Enums
 
-## Value object
+## Recipe: create a constrained string value
 
-Use an enum value object when a module accepts one of a constrained set of
-strings. Put it in the owning module's `enum/` package. Define string
-constants, a private valid-value set, the wrapper type, a validating
-constructor, `String`, and a private validator.
+Use an enum when a module accepts one of a closed set of strings. Create
+`internal/modules/<module>/enum/<snake_case_name>_enum.go`. Before writing the
+file, list every accepted literal and add `ErrInvalid<EnumName>` with
+`http.StatusBadRequest` to the module `errs` package. Add that code to every
+existing locale file.
 
-## Example
+The enum file has six components in this order: constants, validation map,
+wrapper type, constructor, `String`, and private validator.
 
 ```go
+package enum
+
+import "example.com/project/internal/modules/shipment/errs"
+
 const (
 	ShipmentModeStandard = "standard"
 	ShipmentModeExpress  = "express"
@@ -43,27 +49,41 @@ func validateShipmentMode(value string) error {
 }
 ```
 
-## Creation
+`validateShipmentMode` is the one permitted package-level helper in this file.
+The wrapper has no collaborators, so the helper keeps construction concise.
 
-Choose the owning module and complete allowed values before adding the type.
-Add an invalid-value module error with the established code, safe message, and
-locale entries.
+## Naming and placement
 
-## Naming
+| Artifact | Required form | Example |
+| --- | --- | --- |
+| File | `<snake_case>_enum.go` | `shipment_mode_enum.go` |
+| Constants | `<EnumName><Value>` | `ShipmentModeExpress` |
+| Set | `valid<EnumName>s` | `validShipmentModes` |
+| Wrapper | `<EnumName>Enum` | `ShipmentModeEnum` |
+| Constructor | `New<EnumName>Enum` | `NewShipmentModeEnum` |
+| Validator | `validate<EnumName>` | `validateShipmentMode` |
+| Error | `ErrInvalid<EnumName>` | `ErrInvalidShipmentMode` |
 
-Name the file `<name>_enum.go`, constants `<EnumName><Value>`, the private set
-`valid<EnumName>s`, the wrapper `<EnumName>Enum`, the constructor
-`New<EnumName>Enum`, and the private validator `validate<EnumName>`.
+Use `map[string]struct{}` for membership. Do not accept arbitrary strings and
+defer validation to a database or handler. Construct the enum where raw input
+becomes an application value, then pass the validated wrapper through policy.
+Use a string constant directly only when the value is known at compile time.
 
-## Checklist
+## Tests
 
-Verify that every allowed string has a constant and a valid-value-set entry,
-the constructor rejects any other value with the typed module error, and the
-module locale files include that error's code.
+Test the constructor, not only `String`:
 
-## Use
+```go
+func TestNewShipmentModeEnum(t *testing.T) {
+	value, err := enum.NewShipmentModeEnum(enum.ShipmentModeExpress)
+	require.NoError(t, err)
+	assert.Equal(t, "express", value.String())
 
-Construct the value at the boundary that receives the raw string. Pass the
-validated value into application policy. Use constants directly only when the
-value is known at compile time. Test accepted values, rejected values, and the
-string representation.
+	_, err = enum.NewShipmentModeEnum("overnight")
+	assert.ErrorIs(t, err, errs.ErrInvalidShipmentMode)
+}
+```
+
+Test every accepted constant and at least one rejected literal. The final check
+is mechanical: each constant appears once in the set, invalid input returns the
+typed module error, and the locale contains that error code.

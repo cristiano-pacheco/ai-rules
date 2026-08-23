@@ -1,42 +1,115 @@
 # Errors
 
-## Module errors
+## Recipe: add an expected module error
 
-Define expected business errors in the owning module's `errs/` package. Give
-each exported error a unique, stable code, a short safe message, and the status
-mapping used by the established entry-point renderer. Keep the existing module
-ordering and error constructor convention.
+Expected business outcomes live in
+`internal/modules/<module>/errs/errs.go`. Read that file before editing it. Use
+its module prefix, group order, existing `brickserrs` alias, and the next unused
+sequential code. Do not guess an error code.
+
+Add the error to the existing `var` block:
 
 ```go
-var ErrOrderAlreadyConfirmed = brickserrs.New(
-	"ORDER_02",
-	"order already confirmed",
-	http.StatusConflict,
-	nil,
+package errs
+
+import (
+	"net/http"
+
+	brickserrs "github.com/cristiano-pacheco/bricks/pkg/errs"
+)
+
+var (
+	ErrOrderAlreadyConfirmed = brickserrs.New(
+		"ORDER_02",
+		"order already confirmed",
+		http.StatusConflict,
+		nil,
+	)
 )
 ```
 
-Do not change an exposed code or message without accepting its compatibility
-impact. A typed module error crosses the application boundary for an expected
-business result. An unexpected technical failure keeps its identity until the
-entry point renders it safely.
+Apply this sequence:
 
-## Validation errors
+1. Choose `Err` plus a clear PascalCase domain phrase, such as
+   `ErrOrderAlreadyConfirmed`.
+2. Allocate `<MODULE>_<NN>`. Uppercase the module prefix. Pad one-digit numbers
+   to two digits: `ORDER_01` through `ORDER_09`, then `ORDER_10`.
+3. Use a short, lowercase, punctuation-free internal message. The locale holds
+   the user-facing capitalization.
+4. Pick the status that matches the result: invalid input `BadRequest`, missing
+   resource `NotFound`, conflict `Conflict`, authentication `Unauthorized` or
+   `Forbidden`, upstream failure `BadGateway`, unavailable dependency
+   `ServiceUnavailable`, and internal failure `InternalServerError`.
+5. Add the code under `errors` in `locales/en.json` and in every other existing
+   locale file. Use a safe sentence-case translation.
+6. Return the new value from the use case, validator, enum, or adapter that owns
+   the expected outcome.
 
-Create a field-error constructor only when validation needs field-level
-details. Reuse the stable code, message, and status of the module's validation
-error. Add every new error code to every existing module locale file with a
-user-safe translation.
+```json
+{
+  "errors": {
+    "ORDER_02": "Order already confirmed"
+  }
+}
+```
 
-## Adapter translation
+The code, internal message, status, and locale key are a compatibility contract.
+Keep them stable after release unless the change has an accepted migration.
 
-Adapters translate a known infrastructure outcome to the corresponding module
-error when the outcome has business meaning, such as a duplicate key becoming a
-conflict. They return an unknown infrastructure failure unchanged. Application
-policy does not return raw error strings for expected conditions.
+## Recipe: validation error with field details
 
-## Helpers
+Define one stable validation error variable first. Add a package-level helper
+only when a caller needs field-level details. Reuse the stable error's code,
+message, and status instead of allocating one code per field.
 
-Error constructors may be package-level functions. Keep stateful behavior with
-the type that owns it, and keep error helpers limited to constructing or
-classifying errors.
+```go
+var (
+	ErrProfileValidationFailed = brickserrs.New(
+		"PROFILE_01",
+		"profile validation failed",
+		http.StatusBadRequest,
+		nil,
+	)
+)
+
+func NewProfileValidationError(details []brickserrs.Detail) *brickserrs.Error {
+	return brickserrs.New(
+		ErrProfileValidationFailed.Code,
+		ErrProfileValidationFailed.Message,
+		ErrProfileValidationFailed.Status,
+		details,
+	)
+}
+```
+
+This helper is allowed at package scope because it only constructs an error. Do
+not turn the error package into a service package.
+
+## Translate infrastructure at the adapter boundary
+
+An adapter maps a known technical outcome when it has business meaning. For a
+repository with a declared conflict error, map a duplicate key there:
+
+```go
+err := gorm.G[model.OrderModel](r.DB).Create(ctx, &order)
+if err != nil {
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return model.OrderModel{}, errs.ErrOrderNumberConflict
+	}
+	return model.OrderModel{}, err
+}
+```
+
+Map a missing GORM record to the module error when the module defines one;
+otherwise return `brickserrs.ErrRecordNotFound`. Return an unknown technical
+failure unchanged so diagnostics retain its identity. The entry point renders it
+safely. Never manufacture `errors.New(...)` for an expected business result.
+
+## Check before finishing
+
+- The module code is unique and follows the local sequence.
+- The internal message is lowercase and the locale messages cover every locale.
+- The status describes the business result, not the storage mechanism.
+- Known adapter outcomes map to typed errors; unknown failures retain their
+  cause.
+- Callers return the typed value rather than raw string errors.

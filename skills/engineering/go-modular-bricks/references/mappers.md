@@ -1,38 +1,86 @@
 # Mappers
 
-## Pure boundary
+## Recipe: map one representation to another
 
-Use a mapper for an explicit transformation between representations that is
-reused or too large for one boundary. Put module mappers in `mapper/`, with one
-`<name>_mapper.go` file per domain concept. A mapper is functions only: no
-struct, interface, constructor, context, I/O, logging, or side effect.
+Create `internal/modules/<module>/mapper/<name>_mapper.go` for a transformation
+that is reused or too large to keep at one boundary. A mapper contains functions
+only. It has no struct, interface, constructor, context, I/O, logger, database
+call, provider client, or Fx registration.
 
-Each exported mapper begins with `To`, receives one or more inputs, and returns
-one output. It may return an error only when the transformation can fail.
-
-## Examples
+Put public functions before private helpers. Name a public function for the
+output with `To<Xxx>`. Return exactly one value, plus `error` only when parsing
+or conversion can fail.
 
 ```go
+package mapper
+
+import (
+	"example.com/project/internal/modules/order/dto"
+	"example.com/project/internal/modules/order/model"
+	"example.com/project/internal/modules/order/usecase"
+)
+
 func ToOrderConfirmInput(request dto.ConfirmOrderRequest) usecase.OrderConfirmInput {
 	return usecase.OrderConfirmInput{OrderID: request.OrderID}
 }
 
-func ToOrderResponse(order model.Order) dto.OrderResponse {
+func ToOrderResponse(order model.OrderModel) dto.OrderResponse {
 	return dto.OrderResponse{ID: order.ID, Status: order.Status}
 }
 ```
 
-## Naming
+The mapper makes the source and target types explicit. It does not decide
+authorization, state transitions, persistence behavior, or validation policy.
 
-Name public functions `ToXxx` for their output type, private helpers `toXxx`,
-and collection functions `ToXxxList` or `ToXxxListResponse`.
+## Recipe: collection and shared sub-mapping
 
-## Composition
+When the same item appears in a collection, add a collection mapper. Let it
+call the single-item public mapper. Keep a shared nested conversion private.
 
-Place public mapping functions before private helpers. Use a private `to...`
-helper for a shared sub-mapping. Add a slice mapper when that mapped value
-appears in collections. Keep a mapper's direction explicit in its name and
-avoid comments that repeat the conversion name.
+```go
+func ToOrderListResponse(orders []model.OrderModel) []dto.OrderResponse {
+	responses := make([]dto.OrderResponse, len(orders))
+	for i, order := range orders {
+		responses[i] = ToOrderResponse(order)
+	}
+	return responses
+}
 
-Return a typed module error when parsing or conversion makes a mapping fail.
-Keep business policy in the use case and persistence behavior in the adapter.
+func ToOrderResponse(order model.OrderModel) dto.OrderResponse {
+	return dto.OrderResponse{ID: order.ID, Customer: toCustomerResponse(order)}
+}
+
+func toCustomerResponse(order model.OrderModel) dto.CustomerResponse {
+	return dto.CustomerResponse{ID: order.CustomerID, Name: order.CustomerName}
+}
+```
+
+Use `To<Xxx>List` or `To<Xxx>ListResponse` for a slice. Use `to<Xxx>` for a
+private sub-mapping. Do not add comments that merely repeat the conversion name.
+
+## Recipe: fallible conversion
+
+Return a typed module error only when the conversion itself can fail, such as a
+parse. Keep the underlying parsing detail out of the application contract.
+
+```go
+func ToProductModel(request dto.CreateProductRequest) (model.ProductModel, error) {
+	price, err := parsePrice(request.Price)
+	if err != nil {
+		return model.ProductModel{}, errs.ErrInvalidPrice
+	}
+	return model.ProductModel{Name: request.Name, Price: price}, nil
+}
+```
+
+Do not return an error for ordinary field copies. Do not hide a repository or
+HTTP call inside a mapper to obtain a missing field. Make that collaborator call
+in the use case or adapter, then map its result.
+
+## Check before finishing
+
+- The file is under the owning module's `mapper/` directory.
+- Each public mapper begins with `To` and names its output.
+- Every function has one output, with optional `error` as the second result.
+- Collection functions call the single-item mapper.
+- The file has no state, side effect, context, or infrastructure dependency.
