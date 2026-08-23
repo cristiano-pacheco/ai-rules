@@ -40,3 +40,32 @@ group rather than a manual registration outside the module.
 Name the type `<Resource>Router`, its constructor `New<Resource>Router`, and
 its file `<resource>_router.go`. Use the matching `Handle...` method from the
 handler when registering a route.
+
+## Examples
+
+### Good
+
+```go
+import "github.com/cristiano-pacheco/bricks/pkg/http/server/chi"
+
+type ProductRouter struct {
+	handler *handler.ProductHandler
+}
+
+func (r *ProductRouter) Setup(server *chi.Server) {
+	router := server.Router()
+	router.Get("/api/v1/products", r.handler.HandleListProducts)
+	router.Post("/api/v1/products", r.handler.HandleCreateProduct)
+}
+```
+
+### Bad
+
+```go
+func (r *ProductRouter) Setup(server *chi.Server) {
+	router := server.Router()
+	router.Post("/products", func(w http.ResponseWriter, request *http.Request) {
+		r.db.Exec("DELETE FROM products")
+	})
+}
+```

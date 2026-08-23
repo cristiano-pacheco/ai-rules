@@ -22,3 +22,33 @@ those ports.
 Treat module ownership and dependency direction as part of the behavior. A
 change that crosses either boundary needs a deliberate public contract and an
 impact map that names both modules.
+
+## Examples
+
+### Good
+
+```go
+type CreateProductUseCase struct {
+	products ports.ProductRepository
+}
+
+func (uc *CreateProductUseCase) Execute(ctx context.Context, input CreateProductInput) (CreateProductOutput, error) {
+	product, err := uc.products.Create(ctx, Product{Name: input.Name})
+	if err != nil {
+		return CreateProductOutput{}, err
+	}
+	return CreateProductOutput{ID: product.ID}, nil
+}
+```
+
+### Bad
+
+```go
+type CreateProductUseCase struct {
+	db *gorm.DB
+}
+
+func (uc *CreateProductUseCase) Execute(ctx context.Context, input CreateProductInput) error {
+	return uc.db.WithContext(ctx).Create(&model.ProductModel{Name: input.Name}).Error
+}
+```

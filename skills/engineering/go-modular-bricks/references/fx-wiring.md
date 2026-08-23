@@ -36,3 +36,37 @@ explicit name or group.
 Keep bindings close to the constructor that supplies them. When a dependency
 cannot be built from the selected modules and shared infrastructure, update the
 impact map instead of adding a hidden global.
+
+## Examples
+
+### Good
+
+```go
+import (
+	"github.com/cristiano-pacheco/bricks/pkg/http/server/chi"
+	"go.uber.org/fx"
+)
+
+var Module = fx.Module(
+	"catalog",
+	fx.Provide(
+		fx.Annotate(repository.NewProductRepository, fx.As(new(ports.ProductRepository))),
+		handler.NewProductHandler,
+		fx.Annotate(
+			router.NewProductRouter,
+			fx.As(new(chi.Route)),
+			fx.ResultTags(`group:"routes"`),
+		),
+	),
+)
+```
+
+### Bad
+
+```go
+func NewServer() *http.Server {
+	repository := repository.NewProductRepository(globalDB)
+	handler := handler.NewProductHandler(repository)
+	return httpServer(handler)
+}
+```

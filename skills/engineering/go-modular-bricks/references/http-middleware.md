@@ -16,3 +16,35 @@ the HTTP contract, so keep it explicit and test a group when order changes.
 
 Reuse the server's established request context, response, and error handling.
 Do not build a second response envelope or bypass the shared error renderer.
+
+## Examples
+
+### Good
+
+```go
+type requestIDKey struct{}
+
+func RequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), requestIDKey{}, r.Header.Get("X-Request-ID"))
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+```
+
+### Bad
+
+```go
+func RequireActiveAccount(repo ports.AccountRepository) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			account, _ := repo.FindByID(r.Context(), r.Header.Get("Account-ID"))
+			if !account.Active {
+				http.Error(w, "inactive", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+```

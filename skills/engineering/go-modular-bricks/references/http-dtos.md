@@ -29,3 +29,32 @@ whether a valid transport value is allowed by business policy.
 For collections, map query values to a dedicated application input and map
 both items and collection metadata to a response DTO. Do not pass query values
 or a transport pagination type into a repository.
+
+## Examples
+
+### Good
+
+```go
+type CreateProductRequest struct {
+	Name string `json:"name"`
+}
+
+type ProductResponse struct {
+	ID   uint64 `json:"id"`
+	Name string `json:"name"`
+}
+
+func toCreateProductInput(request CreateProductRequest) usecase.CreateProductInput {
+	return usecase.CreateProductInput{Name: request.Name}
+}
+```
+
+### Bad
+
+```go
+func (h *ProductHandler) HandleCreateProduct(w http.ResponseWriter, r *http.Request) {
+	var product model.ProductModel
+	_ = json.NewDecoder(r.Body).Decode(&product)
+	_ = h.createProduct.Execute(r.Context(), product)
+}
+```

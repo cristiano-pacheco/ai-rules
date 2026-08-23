@@ -13,3 +13,23 @@ impact map names the ADR with every changed boundary it authorizes.
 
 An undocumented deviation remains a contract violation. Restore the selected
 flow or obtain the ADR decision before completing the change.
+
+## Examples
+
+### Good
+
+```markdown
+# ADR-0042: use a shared read model for order history
+
+Status: accepted
+
+The reporting module needs data from orders and billing. It will read a
+published read model for 90 days, owned by reporting. Owner: platform team.
+Remove this exception when the reporting API replaces the read model.
+```
+
+### Bad
+
+```markdown
+Use billing's repository from orders for now. Revisit later.
+```

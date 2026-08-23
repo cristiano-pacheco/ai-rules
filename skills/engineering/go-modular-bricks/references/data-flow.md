@@ -29,3 +29,27 @@ renders them safely.
 
 The resulting path assigns business policy to the use case and technical work
 to adapters. The entry point and adapter remain focused on their own boundary.
+
+## Examples
+
+### Good
+
+```go
+input := usecase.CreateProductInput{Name: createRequest.Name}
+output, err := h.createProduct.Execute(r.Context(), input)
+if err != nil {
+	return dto.ProductResponse{}, err
+}
+
+return dto.ProductResponse{ID: output.ID, Name: output.Name}, nil
+```
+
+### Bad
+
+```go
+product := model.ProductModel{Name: createRequest.Name}
+if err := h.db.Create(&product).Error; err != nil {
+	return dto.ProductResponse{}, err
+}
+return dto.ProductResponse{ID: product.ID, Name: product.Name}, nil
+```

@@ -65,3 +65,57 @@ logging before error rendering. Do not write a raw response in place of the
 shared response helper. Do not hide policy or persistence work in a handler
 helper. Keep comments for non-obvious transport choices; method-body narration
 adds no value.
+
+## Examples
+
+### Good
+
+```go
+import (
+	"net/http"
+
+	"github.com/cristiano-pacheco/bricks/pkg/http/request"
+	"github.com/cristiano-pacheco/bricks/pkg/http/response"
+	"github.com/cristiano-pacheco/bricks/pkg/logger"
+	"github.com/cristiano-pacheco/bricks/pkg/ucdecorator"
+)
+
+type ProductHandler struct {
+	createProduct ucdecorator.UseCase[usecase.CreateProductInput, usecase.CreateProductOutput]
+	errorHandler  response.ErrorHandler
+	logger        logger.Logger
+}
+
+func (h *ProductHandler) HandleCreateProduct(w http.ResponseWriter, r *http.Request) {
+	var createRequest dto.CreateProductRequest
+	if err := request.ReadJSON(w, r, &createRequest); err != nil {
+		h.logger.Error("decode create product", logger.Error(err))
+		h.errorHandler.Error(w, err)
+		return
+	}
+
+	output, err := h.createProduct.Execute(r.Context(), usecase.CreateProductInput{Name: createRequest.Name})
+	if err != nil {
+		h.logger.Error("create product", logger.Error(err))
+		h.errorHandler.Error(w, err)
+		return
+	}
+
+	if err = response.JSON(w, http.StatusCreated, dto.ProductResponse{ID: output.ID, Name: output.Name}, http.Header{}); err != nil {
+		h.logger.Error("write create product response", logger.Error(err))
+		h.errorHandler.Error(w, err)
+		return
+	}
+}
+```
+
+### Bad
+
+```go
+func (h *ProductHandler) HandleCreateProduct(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("featured") == "true" {
+		h.db.Exec("UPDATE products SET featured = true")
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+```

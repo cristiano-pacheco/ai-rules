@@ -20,3 +20,34 @@ Regenerate checked-in documentation only when the project uses generated
 artifacts and the change affects them. Run the generator configured by that
 project, then review the generated route, schemas, and status codes against the
 handler.
+
+## Examples
+
+### Good
+
+```go
+import (
+	"net/http"
+
+	brickserrs "github.com/cristiano-pacheco/bricks/pkg/errs"
+	"github.com/cristiano-pacheco/bricks/pkg/http/response"
+)
+
+// @Summary Create a product
+// @Tags Products
+// @Accept json
+// @Produce json
+// @Param request body dto.CreateProductRequest true "Product data"
+// @Success 201 {object} response.Envelope[dto.ProductResponse]
+// @Failure 422 {object} brickserrs.Error
+// @Router /api/v1/products [post]
+func (h *ProductHandler) HandleCreateProduct(w http.ResponseWriter, r *http.Request) {}
+```
+
+### Bad
+
+```go
+// @Summary Create product
+// @Router /products [post]
+func (h *ProductHandler) HandleCreateProduct(w http.ResponseWriter, r *http.Request) {}
+```
