@@ -6,26 +6,13 @@ A collection of rules, guidelines, skills, and workflows designed to help AI cod
 
 ```
 ai-tools/
-├── commands/          # AI workflow commands
-├── docs/              # Architecture and design documentation
-├── skills/            # Specialized AI skills for Go
-└── templates/         # Document templates for workflows
+├── docs/              # Architecture and agent-workflow documentation
+└── skills/            # Active and deprecated AI skills
 ```
-
-## Commands
-
-Located in `commands/`, these are structured workflows for AI assistants:
-
-| Command | File | Description |
-|---------|------|-------------|
-| **Create PRD** | `create-prd.md` | Gather requirements and generate a Product Requirements Document |
-| **Create Tech Spec** | `create-techspec.md` | Analyze requirements and design technical solutions |
-| **Create Tasks** | `create-tasks.md` | Break down a Tech Spec into actionable development tasks |
-| **Execute Task** | `execute-task.md` | Guidelines for implementing a specific task |
 
 ## Skills
 
-Located in `skills/`, these are specialized instructions for generating code:
+Located in `skills/`, these are specialized instructions for engineering work:
 
 ### Go Skills (Modular Architecture)
 
@@ -44,6 +31,22 @@ Located in `skills/`, these are specialized instructions for generating code:
 | `go-usecase` | Business operations with metrics/tracing |
 | `go-validator` | Validation ports + implementations |
 
+### Workflow Skills
+
+| Skill | Description |
+|-------|-------------|
+| `100-go-rules` | Go design and code-quality rulebook |
+| `ai-commit` | Commit and push handoff artifacts for AI workflows |
+| `ai-code-review` | Parallel standards and specification review for a branch diff |
+| `ai-implement` | Implement work from a specification or tickets |
+| `ai-setup-skills` | Configure the issue tracker, triage labels, and domain docs |
+| `ai-to-spec` | Synthesize the current conversation into an issue-tracker specification |
+| `ai-to-tickets` | Break a plan or specification into tracer-bullet tickets |
+| `commit` | Create a Conventional Commit from staged changes |
+| `deslop` | Remove unnecessary AI-generated complexity from a branch diff |
+
+Deprecated skills remain available in `skills/deprecated/` for reference only.
+
 ## Documentation
 
 Located in `docs/`:
@@ -51,17 +54,6 @@ Located in `docs/`:
 | Document | Description |
 |----------|-------------|
 | `go-modular-architecture.md` | Complete guide for Go modular architecture with Fx DI, ports/usecase/repository boundaries, Chi HTTP adapters, typed errors, tracing, and metrics |
-
-## Templates
-
-Located in `templates/`, standard formats for generated documents:
-
-| Template | File | Description |
-|----------|------|-------------|
-| PRD | `prd-template.md` | Product Requirements Document format |
-| Tech Spec | `techspec-template.md` | Technical design specification format |
-| Tasks | `tasks-template.md` | Task list format |
-| Task | `task-template.md` | Individual task definition format |
 
 ## Usage
 
