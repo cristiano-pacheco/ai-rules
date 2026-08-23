@@ -104,9 +104,11 @@ an expected branch, distinguish it from an unexpected lookup failure with
 `errors.Is`; return a typed module error for the expected business condition.
 Never return `errors.New(...)` for that condition.
 
-Do not create tracing or metrics inside `Execute`. The decorated use-case
-boundary owns shared observability. Keep stateful helpers as private methods on
-the use-case type. Do not add package-level helpers beside a use-case type.
+Do not create generic execution tracing or metrics inside `Execute`. The
+decorated use-case boundary owns that shared observability. Emit a trace or
+metric there only for a meaningful domain decision, event, or failure. Keep
+stateful helpers as private methods on the use-case type. Do not add
+package-level helpers beside a use-case type.
 
 ## Recipe: call another module
 
@@ -161,6 +163,7 @@ constructor to its `fx.Provide` group.
 - Input validation is the first action and every returned collaborator error is
   logged.
 - Expected results use typed module errors; ports are interfaces.
-- No use-case tracing, metrics, raw errors, shared contracts, or standalone
-  helpers were introduced.
+- Generic execution telemetry stays in the decorated boundary; use-case
+  telemetry marks only meaningful domain decisions, events, or failures.
+- No raw errors, shared contracts, or standalone helpers were introduced.
 - Fx exposes the decorated use-case API.

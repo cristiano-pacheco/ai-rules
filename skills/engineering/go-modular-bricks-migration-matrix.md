@@ -59,6 +59,7 @@ uses none because every source behavior has a destination or a replacement.
 | `references/integration-tests.md` | 07 | Real controlled-infrastructure tests. |
 | `references/external-provider-mocks.md` | 07 | Fakes only for uncontrolled providers. |
 | `references/otel.md` | 07 | I/O and use-case tracing. |
+| `references/prometheus.md` | 07 | Use-case duration and outcome metrics. |
 
 ## Canonical-source manifest
 

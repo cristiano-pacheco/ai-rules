@@ -61,6 +61,11 @@ only route to that contract.
 | The change calls another service through HTTP, gRPC, or another transport client. | Read `references/clients.md` in full. |
 | The change calls a third-party SDK or provider API. | Read `references/providers.md` in full. |
 | The changed flow reads or writes cached state. | Read `references/cache.md` in full. |
+| The change adds or alters a validator, enum, mapper, pure service, or another deterministic boundary. | Read `references/unit-tests.md` in full. |
+| The change adds or alters a use case, repository, migration-backed persistence flow, or another flow that needs controlled real infrastructure. | Read `references/integration-tests.md` in full. |
+| An integration flow calls an uncontrolled external provider. | Read `references/external-provider-mocks.md` in full. |
+| The change adds or alters adapter I/O tracing or a domain-specific use-case span. | Read `references/otel.md` in full. |
+| The change adds or alters use-case duration or outcome metrics. | Read `references/prometheus.md` in full. |
 | The selected flow cannot follow one of these contracts. | Read `references/adr-exceptions.md` in full before choosing the exception. |
 
 *Done when:* every selected contract has been read in full and no unselected
@@ -73,9 +78,12 @@ contract has been loaded.
    root.
 2. Correct a selected-path violation of a loaded contract. Record a deliberate
    departure through the ADR process before it becomes part of the change.
-3. Run the repository's relevant validation commands. Report the impact map,
-   references read, changed flow and layers, changed tests, commands, and
-   results.
+3. Run `make lint`, `make test`, and `make test-integration`. Record the exact
+   command and result for every gate. A nonzero result or an unavailable
+   prerequisite blocks completion; report the prerequisite and failure rather
+   than claiming the flow is complete.
+4. Report the impact map, references read, changed flow and layers, changed
+   tests, commands, and results.
 
 *Done when:* the delivered change and report account for every item marked
 changed in the impact map.
