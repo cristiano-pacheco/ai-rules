@@ -45,12 +45,12 @@ func init() {
 
 func runPublishProduct(cmd *cobra.Command, productID uint64) error {
 	return runCommand(cmd.Context(), func(
-		publishProduct ucdecorator.UseCase[
+		publishProductUseCase ucdecorator.UseCase[
 			usecase.ProductPublishInput,
 			usecase.ProductPublishOutput,
 		],
 	) error {
-		_, err := publishProduct.Execute(cmd.Context(), usecase.ProductPublishInput{
+		_, err := publishProductUseCase.Execute(cmd.Context(), usecase.ProductPublishInput{
 			ProductID: productID,
 		})
 		return err
