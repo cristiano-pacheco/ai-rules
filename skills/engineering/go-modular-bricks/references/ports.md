@@ -28,10 +28,11 @@ type OrderRepository interface {
 }
 ```
 
-Use module-owned models and DTOs in signatures. Do not expose `*gorm.DB`, an
-HTTP request, a provider SDK type, a Redis client, adapter configuration, or
-another module's internal package. Put `context.Context` first whenever the
-method does I/O.
+Use module-owned models and DTOs in signatures. Do not expose an HTTP request,
+a provider SDK type, a Redis client, adapter configuration, or another module's
+internal package. Put `context.Context` first whenever the method does I/O.
+`TransactionProvider` and repository `*TX` methods are the GORM exception:
+they receive or return `*gorm.DB` only to run one explicit transaction.
 
 ## Match the port to its implementation category
 
@@ -43,6 +44,7 @@ method does I/O.
 | Third-party capability | `ports/<name>_provider.go`, `XxxProvider` | `provider/<name>_provider.go` |
 | Reusable validation | `ports/<name>_validator.go`, `XxxValidator` | `validator/<name>_validator.go` |
 | Redis storage | `ports/<name>_cache.go`, `XxxCache` | `cache/<name>_cache.go` |
+| Persistence transaction | `ports/transaction_provider.go`, `TransactionProvider` | `repository/transaction_provider.go` |
 
 Choose a narrow method named for the application need. A repository may expose
 `FindByEmail` when that is the query policy requires, rather than a generic
@@ -83,7 +85,8 @@ mapper or a pure service until a real collaborator boundary appears.
 ## Check before finishing
 
 - The port is in the consuming module and describes only what that policy needs.
-- Its signature contains application-owned values and context for I/O.
+- Its signature contains application-owned values and context for I/O, except
+  the explicit `*gorm.DB` transaction contract.
 - The interface comment explains non-obvious behavior.
 - The adapter has a compile-time assertion and pointer-returning constructor.
 - Fx binds the concrete type with `fx.As(new(ports.Xxx))`.

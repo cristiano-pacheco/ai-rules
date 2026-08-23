@@ -37,6 +37,7 @@ var Module = fx.Module(
 	"orders",
 	fx.Provide(
 		fx.Annotate(repository.NewOrderRepository, fx.As(new(ports.OrderRepository))),
+		fx.Annotate(repository.NewTransactionProvider, fx.As(new(ports.TransactionProvider))),
 		fx.Annotate(client.NewInventoryClient, fx.As(new(ports.InventoryClient))),
 		fx.Annotate(provider.NewReceiptProvider, fx.As(new(ports.ReceiptProvider))),
 		fx.Annotate(cache.NewOrderCache, fx.As(new(ports.OrderCache))),
@@ -45,6 +46,7 @@ var Module = fx.Module(
 ```
 
 The last binding belongs in this module only when an order flow uses the cache.
+Bind `TransactionProvider` only when the module has a use-case transaction.
 Register each module migration file system with the migration group expected by
 the project. Keep the group tag and contribution type used by the existing
 migration runner.

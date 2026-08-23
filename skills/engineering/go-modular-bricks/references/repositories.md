@@ -246,8 +246,36 @@ For one adapter-local operation that needs several writes to succeed or fail
 together, add `WithTX`, `CreateTX`, and `UpdateTX` to
 `internal/modules/<module>/repository/<entity>_repository.go`. Keep these
 methods out of `internal/modules/<module>/ports/<entity>_repository.go`: the
-application port continues to hide GORM. A caller that needs atomic writes in
-more than one repository uses the use-case `Transaction.WithTX` instead.
+application port continues to hide GORM. The exception is a `*TX` method that
+participates in a `TransactionProvider` operation: declare `context.Context`
+first and `*gorm.DB` second so the use case can pass the transaction created
+by `CreateTX` or received by `WithTX`. A caller that needs atomic writes in
+more than one repository uses `TransactionProvider.WithTX` instead.
+
+For a repository that participates in a use-case transaction, add its `*TX`
+operations to the same port and import GORM there. Keep their input, output,
+error translation, and tracing behavior identical to the corresponding
+non-transactional operation.
+
+```go
+package ports
+
+import (
+	"context"
+
+	"example.com/project/internal/modules/billing/model"
+	"gorm.io/gorm"
+)
+
+type InvoiceRepository interface {
+	FindByID(ctx context.Context, id uint64) (model.InvoiceModel, error)
+	Create(ctx context.Context, invoice model.InvoiceModel) (model.InvoiceModel, error)
+	CreateTX(ctx context.Context, tx *gorm.DB, invoice model.InvoiceModel) (model.InvoiceModel, error)
+	Update(ctx context.Context, invoice model.InvoiceModel) (model.InvoiceModel, error)
+	UpdateTX(ctx context.Context, tx *gorm.DB, invoice model.InvoiceModel) (model.InvoiceModel, error)
+	Delete(ctx context.Context, id uint64) error
+}
+```
 
 `WithTX` owns the boundary. It derives the transaction from the caller context,
 passes the active `*gorm.DB` only to the callback, rolls back when the callback
