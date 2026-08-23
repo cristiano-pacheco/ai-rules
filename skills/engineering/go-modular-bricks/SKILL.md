@@ -48,6 +48,13 @@ only route to that contract.
 | The change adds or changes a constrained domain value. | Read `references/enums.md` in full. |
 | The change maps values between representations outside a small, single-use boundary mapping. | Read `references/mappers.md` in full. |
 | The change adds a reusable pure or I/O-backed capability consumed by application policy. | Read `references/services.md` in full. |
+| The change persists, loads, updates, deletes, filters, or joins module-owned records. | Read `references/repositories.md` in full. |
+| The change adds or alters a GORM model. | Read `references/models.md` in full. |
+| The change creates, alters, backfills, or removes database schema. | Read `references/migrations.md` in full. |
+| The change creates or alters shared database setup, connection lifecycle, or database configuration. | Read `references/database.md` in full. |
+| The change calls another service through HTTP, gRPC, or another transport client. | Read `references/clients.md` in full. |
+| The change calls a third-party SDK or provider API. | Read `references/providers.md` in full. |
+| The changed flow reads or writes cached state. | Read `references/cache.md` in full. |
 | The selected flow cannot follow one of these contracts. | Read `references/adr-exceptions.md` in full before choosing the exception. |
 
 *Done when:* every selected contract has been read in full and no unselected

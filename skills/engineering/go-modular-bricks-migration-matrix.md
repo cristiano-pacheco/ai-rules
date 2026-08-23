@@ -45,6 +45,8 @@ uses none because every source behavior has a destination or a replacement.
 | `references/models.md` | 05 | GORM persistence models. |
 | `references/migrations.md` | 05 | Schema-change ownership. |
 | `references/database.md` | 05 | Shared database infrastructure. |
+| `references/clients.md` | 05 | Internal remote-service clients. |
+| `references/providers.md` | 05 | Third-party provider adapters. |
 | `references/cache.md` | 05 | Cache capability only when used. |
 | `references/fx-wiring.md` | 02 | Fx bindings and registrations. |
 | `references/unit-tests.md` | 07 | Unit-test seams and evidence. |

@@ -39,6 +39,8 @@ method does I/O.
 | --- | --- | --- |
 | Persistence | `ports/<entity>_repository.go`, `XxxRepository` | `repository/<entity>_repository.go` |
 | External or reusable service | `ports/<name>_service.go`, `XxxService` | `service/<name>_service.go` |
+| Internal remote service | `ports/<name>_client.go`, `XxxClient` | `client/<name>_client.go` |
+| Third-party capability | `ports/<name>_provider.go`, `XxxProvider` | `provider/<name>_provider.go` |
 | Reusable validation | `ports/<name>_validator.go`, `XxxValidator` | `validator/<name>_validator.go` |
 | Redis storage | `ports/<name>_cache.go`, `XxxCache` | `cache/<name>_cache.go` |
 

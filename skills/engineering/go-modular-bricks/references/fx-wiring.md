@@ -25,6 +25,30 @@ the decorated public use-case contracts, the established error renderer, and
 the logger. The handler is an inbound adapter, not a port published to another
 module.
 
+## Persistence and integration bindings
+
+Build the shared database once in the application composition root. Its
+constructor owns driver setup and shutdown. A module binds each repository,
+client, provider, or cache implementation where it owns the matching port.
+Do not provide a cache implementation for a module that does not use one.
+
+```go
+var Module = fx.Module(
+	"orders",
+	fx.Provide(
+		fx.Annotate(repository.NewOrderRepository, fx.As(new(ports.OrderRepository))),
+		fx.Annotate(client.NewInventoryClient, fx.As(new(ports.InventoryClient))),
+		fx.Annotate(provider.NewReceiptProvider, fx.As(new(ports.ReceiptProvider))),
+		fx.Annotate(cache.NewOrderCache, fx.As(new(ports.OrderCache))),
+	),
+)
+```
+
+The last binding belongs in this module only when an order flow uses the cache.
+Register each module migration file system with the migration group expected by
+the project. Keep the group tag and contribution type used by the existing
+migration runner.
+
 ## Route group
 
 Publish each router as the Bricks Chi route contribution expected by the
