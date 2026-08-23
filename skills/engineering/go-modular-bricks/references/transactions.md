@@ -69,48 +69,18 @@ successful output before all required writes succeed.
 
 ## Recipe: repository-local GORM transaction
 
-For one adapter-owned relationship replacement, start the transaction in the
-repository, roll back on each failed step, and check commit failure.
-
-```go
-func (r *OrderRepository) ReplaceItems(
-	ctx context.Context,
-	orderID uint64,
-	itemIDs []uint64,
-) error {
-	ctx, span := trace.Span(ctx, "OrderRepository.ReplaceItems")
-	defer span.End()
-
-	tx := r.DB.Begin()
-	_, err := gorm.G[model.OrderItemModel](tx).
-		Where("order_id = ?", orderID).
-		Delete(ctx)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	items := make([]model.OrderItemModel, 0, len(itemIDs))
-	for _, itemID := range itemIDs {
-		items = append(items, model.OrderItemModel{OrderID: orderID, ItemID: itemID})
-	}
-	if err := gorm.G[model.OrderItemModel](tx).CreateInBatches(ctx, &items, len(items)); err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit().Error
-}
-```
-
-Read the repository's existing transaction convention before copying this
-pattern. Preserve its rollback and error-translation behavior.
+For one adapter-owned operation, use its `WithTX` callback and `*TX` methods.
+`WithTX` is the sole owner of the GORM boundary: it receives the callback's
+first error, rolls back on failure, and returns a commit error. The callback
+passes its active transaction only to the adapter's `CreateTX`, `UpdateTX`,
+and equivalent operations.
 
 ## Check before finishing
 
 - The transaction scope covers the exact writes that must be atomic.
 - Multiple repositories use a use-case-owned transaction and the callback
   context.
-- A local repository transaction cannot leak its consistency rule outside that
-  adapter.
-- Every failure rolls back or reaches the transaction manager, and commit
-  failure reaches the caller.
+- A local repository operation uses the `WithTX` recipe and does not manage a
+  second transaction inside its callback.
+- Every failure reaches the transaction owner, and commit failure reaches the
+  caller.

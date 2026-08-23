@@ -240,6 +240,132 @@ The repository owns a transaction only when the entire atomic operation stays
 inside that one adapter. Read the transaction contract before coordinating more
 than one repository.
 
+## Recipe: run related adapter writes in one transaction
+
+For one adapter-local operation that needs several writes to succeed or fail
+together, add `WithTX`, `CreateTX`, and `UpdateTX` to
+`internal/modules/<module>/repository/<entity>_repository.go`. Keep these
+methods out of `internal/modules/<module>/ports/<entity>_repository.go`: the
+application port continues to hide GORM. A caller that needs atomic writes in
+more than one repository uses the use-case `TransactionManager` instead.
+
+`WithTX` owns the boundary. It derives the transaction from the caller context,
+passes the active `*gorm.DB` only to the callback, rolls back when the callback
+returns an error, and returns a commit error to its caller. GORM's
+`Transaction` provides those rollback and commit semantics; do not call
+`Begin`, `Rollback`, or `Commit` inside the callback.
+
+```go
+func (r *InvoiceRepository) WithTX(
+	ctx context.Context,
+	fn func(tx *gorm.DB) error,
+) error {
+	ctx, span := trace.Span(ctx, "InvoiceRepository.WithTX")
+	defer span.End()
+
+	return r.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(tx.WithContext(ctx))
+	})
+}
+```
+
+`CreateTX` and `UpdateTX` receive the transaction explicitly. Start their own
+adapter spans, use the callback context, and translate known database outcomes
+exactly as the non-transactional methods do. The normal `Create` and `Update`
+methods remain the single-write entry points; do not make them silently open a
+transaction.
+
+```go
+func (r *InvoiceRepository) CreateTX(
+	ctx context.Context,
+	tx *gorm.DB,
+	invoice model.InvoiceModel,
+) (model.InvoiceModel, error) {
+	ctx, span := trace.Span(ctx, "InvoiceRepository.CreateTX")
+	defer span.End()
+
+	err := gorm.G[model.InvoiceModel](tx.WithContext(ctx)).Create(ctx, &invoice)
+	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return model.InvoiceModel{}, errs.ErrInvoiceNumberConflict
+		}
+		return model.InvoiceModel{}, err
+	}
+	return invoice, nil
+}
+
+func (r *InvoiceRepository) UpdateTX(
+	ctx context.Context,
+	tx *gorm.DB,
+	invoice model.InvoiceModel,
+) (model.InvoiceModel, error) {
+	ctx, span := trace.Span(ctx, "InvoiceRepository.UpdateTX")
+	defer span.End()
+
+	db := tx.WithContext(ctx)
+	result := db.Model(&model.InvoiceModel{}).
+		Where("id = ?", invoice.ID).
+		Select("status", "note").
+		Updates(&invoice)
+	if result.Error != nil {
+		return model.InvoiceModel{}, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return model.InvoiceModel{}, brickserrs.ErrRecordNotFound
+	}
+
+	updated, err := gorm.G[model.InvoiceModel](db).
+		Where("id = ?", invoice.ID).
+		Limit(1).
+		First(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.InvoiceModel{}, brickserrs.ErrRecordNotFound
+		}
+		return model.InvoiceModel{}, err
+	}
+	return updated, nil
+}
+```
+
+Call the methods only from the `WithTX` callback, return the first error, and
+let `WithTX` finalize the transaction. The adapter does not log database
+errors; the entry point logs the returned error once and renders its declared
+module error through the established locale path.
+
+```go
+func (r *InvoiceRepository) CreateAndUpdate(
+	ctx context.Context,
+	invoice model.InvoiceModel,
+) (model.InvoiceModel, error) {
+	ctx, span := trace.Span(ctx, "InvoiceRepository.CreateAndUpdate")
+	defer span.End()
+
+	var updated model.InvoiceModel
+	err := r.WithTX(ctx, func(tx *gorm.DB) error {
+		created, err := r.CreateTX(ctx, tx, invoice)
+		if err != nil {
+			return err
+		}
+
+		created.Status = model.InvoiceStatusPending
+		updated, err = r.UpdateTX(ctx, tx, created)
+		return err
+	})
+	if err != nil {
+		return model.InvoiceModel{}, err
+	}
+	return updated, nil
+}
+```
+
+The constructor, interface assertion, and existing Fx binding are unchanged:
+the concrete repository already receives `*database.ProjectDB`, and no
+additional provider is required. Add an integration test that proves a
+callback error rolls back a preceding `CreateTX`, a successful callback
+commits both writes, and a commit error reaches the caller when the database
+test harness can induce one.
+
 ## Check before finishing
 
 - The use case receives the port, never the concrete repository or GORM database.
@@ -247,4 +373,8 @@ than one repository.
 - Single-record reads limit before first; targeted mutations check affected rows.
 - A bulk cleanup may delete zero rows without error.
 - The constructor, assertion, port comment, and Fx binding match the adapter.
+- `WithTX` alone creates the adapter-local transaction; every `*TX` method
+  receives the callback transaction and uses its caller context.
+- The callback returns the first failure; integration coverage proves rollback
+  and successful commit for the atomic operation.
 - Add integration evidence for changed persistence behavior when that test contract applies.
