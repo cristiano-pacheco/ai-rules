@@ -53,9 +53,8 @@ package migrations
 
 import (
 	"embed"
-	"io/fs"
 
-	"example.com/project/internal/shared/migration"
+	"github.com/cristiano-pacheco/bricks/pkg/migration"
 )
 
 // Files contains the billing module SQL migrations.
@@ -63,27 +62,28 @@ import (
 //go:embed *.sql
 var Files embed.FS
 
-func NewContribution() migration.Contribution {
-	return migration.Contribution{Name: "billing", Files: fs.FS(Files)}
+func NewFileSystem() migration.FileSystem {
+	return migration.New(Files)
 }
 ```
 
 ```go
 fx.Provide(
 	fx.Annotate(
-		migrations.NewContribution,
-		fx.ResultTags(`group:"migrations"`),
+		migrations.NewFileSystem,
+		fx.ResultTags(`group:"migration_filesystems"`),
 	),
 )
 ```
 
-Keep `NewContribution` aligned with the local migration runner's expected
-type. Do not invent a second runner or execute migrations from a handler,
+Keep `NewFileSystem` aligned with the Bricks migration contribution type. Do
+not invent a second runner or execute migrations from a handler,
 repository, or use case.
 
 ## Check before finishing
 
 - New SQL has a unique ordered name and the runner's required down path.
 - The change preserves existing data and deployment ordering.
-- The owner module registers its migration contribution through Fx.
+- The owner module registers its migration file system through Fx with
+  `group:"migration_filesystems"`.
 - The corresponding model and persistence integration test use the migrated schema.

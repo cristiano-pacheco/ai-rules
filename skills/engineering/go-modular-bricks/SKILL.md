@@ -39,6 +39,7 @@ only route to that contract.
 | The change adds or alters module-owned HTTP middleware. | Read `references/http-middleware.md` in full. |
 | The change lists a collection with pagination, ordering, or filters. | Read `references/pagination-filtering.md` in full. |
 | The requested HTTP change includes API documentation. | Read `references/api-documentation.md` in full. |
+| The change adds or alters a Cobra command, server startup, migration execution, or an administrative entry point. | Read `references/commands.md` in full. |
 | The change adds or changes application policy, a business operation, or a call into another module. | Read `references/use-cases.md` in full. |
 | The change adds or changes an outbound dependency contract used by application policy. | Read `references/ports.md` in full. |
 | The operation must make work across multiple repositories atomic, or a repository owns one local transaction. | Read `references/transactions.md` in full. |
@@ -52,6 +53,11 @@ only route to that contract.
 | The change adds or alters a GORM model. | Read `references/models.md` in full. |
 | The change creates, alters, backfills, or removes database schema. | Read `references/migrations.md` in full. |
 | The change creates or alters shared database setup, connection lifecycle, or database configuration. | Read `references/database.md` in full. |
+| The change changes global YAML files, configuration loading, environment overlays, or an `env://` variable. | Read `references/global-configuration.md` in full. |
+| The change adds or changes configuration owned by one module. | Read `references/module-configuration.md` in full. |
+| The change adds or changes translated module messages or a module locale file system. | Read `references/locales.md` in full. |
+| The change adds or changes module-owned static files. | Read `references/assets.md` in full. |
+| The change adds or changes module-owned UI templates. | Read `references/templates.md` in full. |
 | The change calls another service through HTTP, gRPC, or another transport client. | Read `references/clients.md` in full. |
 | The change calls a third-party SDK or provider API. | Read `references/providers.md` in full. |
 | The changed flow reads or writes cached state. | Read `references/cache.md` in full. |

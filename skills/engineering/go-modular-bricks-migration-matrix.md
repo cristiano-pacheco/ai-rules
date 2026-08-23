@@ -48,6 +48,12 @@ uses none because every source behavior has a destination or a replacement.
 | `references/clients.md` | 05 | Internal remote-service clients. |
 | `references/providers.md` | 05 | Third-party provider adapters. |
 | `references/cache.md` | 05 | Cache capability only when used. |
+| `references/commands.md` | 06 | Cobra business and infrastructure commands. |
+| `references/global-configuration.md` | 06 | Global YAML loading, overlays, and environment variables. |
+| `references/module-configuration.md` | 06 | Typed configuration owned by one module. |
+| `references/locales.md` | 06 | Module locale file systems and translations. |
+| `references/assets.md` | 06 | Module-owned static resources. |
+| `references/templates.md` | 06 | Module-owned UI templates. |
 | `references/fx-wiring.md` | 02 | Fx bindings and registrations. |
 | `references/unit-tests.md` | 07 | Unit-test seams and evidence. |
 | `references/integration-tests.md` | 07 | Real controlled-infrastructure tests. |

@@ -47,9 +47,9 @@ var Module = fx.Module(
 
 The last binding belongs in this module only when an order flow uses the cache.
 Bind `TransactionProvider` only when the module has a use-case transaction.
-Register each module migration file system with the migration group expected by
-the project. Keep the group tag and contribution type used by the existing
-migration runner.
+Register each module `migration.FileSystem` with
+`group:"migration_filesystems"`. The Bricks migration runner collects that
+group from the same Fx graph used by the server and migration command.
 
 ## Route group
 
