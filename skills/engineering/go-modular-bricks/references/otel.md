@@ -4,7 +4,7 @@
 
 Add an OTEL span to every changed repository, client, provider, cache, or I/O
 service method. The method takes caller `context.Context` first. Its first
-statements create and defer the span, named `Type.Method`.
+statements create and defer the span, named `StructName.MethodName`.
 
 ```go
 package provider
@@ -57,7 +57,8 @@ The existing decorated use-case boundary owns generic execution tracing,
 duration, and outcome telemetry. Add a use-case span only for a meaningful
 domain event that needs its own trace segment. Put it around that event inside
 `internal/modules/<module>/usecase/<noun>_<action>_usecase.go`; do not wrap the
-whole `Execute` method a second time.
+whole `Execute` method a second time. Every span still uses
+`StructName.MethodName`; keep event detail out of the span name.
 
 ```go
 func (uc *OrderConfirmUseCase) Execute(
@@ -69,7 +70,7 @@ func (uc *OrderConfirmUseCase) Execute(
 		return OrderConfirmOutput{}, err
 	}
 
-	ctx, span := trace.Span(ctx, "OrderConfirmUseCase.confirmation")
+	ctx, span := trace.Span(ctx, "OrderConfirmUseCase.Execute")
 	defer span.End()
 
 	confirmed, err := uc.orderRepository.Confirm(ctx, input.OrderID)
@@ -97,8 +98,9 @@ production path.
 
 ## Check before finishing
 
-- Every changed I/O method starts and defers one `Type.Method` span.
-- A use-case span identifies one domain event and leaves generic execution
-  telemetry to the decorated boundary.
+- Every changed I/O method starts and defers one `StructName.MethodName` span.
+- Every use-case span uses `StructName.MethodName`; its surrounding operation
+  identifies the domain event while generic telemetry stays in the decorated
+  boundary.
 - Constructors, assertions, Fx bindings, context propagation, logging, typed
   errors, and locale ownership remain with their production responsibility.
