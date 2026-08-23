@@ -51,42 +51,36 @@ unknown technical errors unchanged. An I/O service logs each returned error.
 The span and log carry the caller context; neither creates a background context
 nor a new module error or locale entry.
 
-## Trace domain events in use cases
+## Trace I/O service operations
 
-The existing decorated use-case boundary owns generic execution tracing,
-duration, and outcome telemetry. Add a use-case span only for a meaningful
-domain event that needs its own trace segment. Put it around that event inside
-`internal/modules/<module>/usecase/<noun>_<action>_usecase.go`; do not wrap the
-whole `Execute` method a second time. Every span still uses
-`StructName.MethodName`; keep event detail out of the span name.
+The decorated use-case boundary already owns generic execution tracing,
+duration, and outcome telemetry. Put operation-level spans in the I/O services
+and adapters that do the work. Create a service in
+`internal/modules/<module>/service/<name>_service.go` when a use case needs a
+reusable capability; read [the service recipe](services.md) in full for its port,
+constructor, interface assertion, and Fx binding. Use the span naming rule
+above without event detail in the name.
 
 ```go
-func (uc *OrderConfirmUseCase) Execute(
+func (s *CatalogRefreshService) Execute(
 	ctx context.Context,
-	input OrderConfirmInput,
-) (OrderConfirmOutput, error) {
-	if err := uc.validator.Struct(input); err != nil {
-		uc.logger.Error("order confirmation validation failed", logger.Error(err))
-		return OrderConfirmOutput{}, err
-	}
-
-	ctx, span := trace.Span(ctx, "OrderConfirmUseCase.Execute")
+	input dto.CatalogRefreshInput,
+) error {
+	ctx, span := trace.Span(ctx, "CatalogRefreshService.Execute")
 	defer span.End()
 
-	confirmed, err := uc.orderRepository.Confirm(ctx, input.OrderID)
-	if err != nil {
-		uc.logger.Error("order confirmation failed", logger.Error(err))
-		return OrderConfirmOutput{}, err
+	if err := s.catalogClient.Refresh(ctx, input.CatalogID); err != nil {
+		s.logger.Error("CatalogRefreshService.Execute failed", logger.Error(err))
+		return err
 	}
-	return OrderConfirmOutput{OrderID: confirmed.ID, Status: confirmed.Status}, nil
+	return nil
 }
 ```
 
-Keep validation first and preserve the use case's `Execute(ctx, input)`
-contract, pointer constructor, typed errors, and locale entries. The span does
-not replace logging or error translation. The owner module's existing
-`provideDecoratedUseCases` wiring continues to expose the decorated contract to
-entry points.
+Keep the caller context, direct error logging, typed error translation, and
+locale ownership with the service or adapter that owns them. The span does not
+replace logging or error translation. Leave the use case's existing decorated
+boundary in place.
 
 ## Prove behavior, not tracing internals
 
@@ -99,8 +93,7 @@ production path.
 ## Check before finishing
 
 - Every changed I/O method starts and defers one `StructName.MethodName` span.
-- Every use-case span uses `StructName.MethodName`; its surrounding operation
-  identifies the domain event while generic telemetry stays in the decorated
-  boundary.
+- A decorated use case keeps generic execution telemetry at its boundary; its
+  I/O services and adapters trace their own operations.
 - Constructors, assertions, Fx bindings, context propagation, logging, typed
   errors, and locale ownership remain with their production responsibility.

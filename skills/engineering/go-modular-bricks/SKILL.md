@@ -64,7 +64,7 @@ only route to that contract.
 | The change adds or alters a validator, enum, mapper, pure service, or another deterministic boundary. | Read `references/unit-tests.md` in full. |
 | The change adds or alters a use case, repository, migration-backed persistence flow, or another flow that needs controlled real infrastructure. | Read `references/integration-tests.md` in full. |
 | An integration flow calls an uncontrolled external provider. | Read `references/external-provider-mocks.md` in full. |
-| The change adds or alters adapter I/O tracing or a domain-specific use-case span. | Read `references/otel.md` in full. |
+| The change adds or alters adapter I/O tracing, I/O service tracing, or a domain-specific use-case span. | Read `references/otel.md` in full. |
 | The change adds or alters use-case duration or outcome metrics. | Read `references/prometheus.md` in full. |
 | The selected flow cannot follow one of these contracts. | Read `references/adr-exceptions.md` in full before choosing the exception. |
 
