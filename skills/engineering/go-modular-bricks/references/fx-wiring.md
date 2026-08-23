@@ -18,6 +18,21 @@ Expose raw use cases to composition and integration code. Publish the decorated
 use-case contract to entry points when the application applies common behavior
 such as metrics, tracing, or error translation there.
 
+## HTTP bindings
+
+Provide each handler from its module composition root. Its constructor receives
+the decorated public use-case contracts, the established error renderer, and
+the logger. The handler is an inbound adapter, not a port published to another
+module.
+
+## Route group
+
+Publish each router as the Bricks Chi route contribution expected by the
+server. Bind the concrete router as `chi.Route` and tag the result with
+`group:"routes"` so the server discovers it. Register module-owned middleware
+through the same composition root and inject it into the router with an
+explicit name or group.
+
 Keep bindings close to the constructor that supplies them. When a dependency
 cannot be built from the selected modules and shared infrastructure, update the
 impact map instead of adding a hidden global.

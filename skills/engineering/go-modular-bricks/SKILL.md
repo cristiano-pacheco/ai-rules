@@ -33,6 +33,12 @@ only route to that contract.
 | The change creates, splits, removes, or connects a business module. | Read `references/modules.md` in full. |
 | The change adds or places a cross-module technical capability. | Read `references/shared.md` in full. |
 | The change adds a constructor, implementation binding, grouped contribution, configuration, asset, locale, migration, raw use case, decorated use case, handler, or route. | Read `references/fx-wiring.md` in full. |
+| The change accepts or returns JSON, or maps HTTP values to application contracts. | Read `references/http-dtos.md` in full. |
+| The change adds or alters an HTTP handler or its success or error boundary. | Read `references/http-handlers.md` in full. |
+| The change adds or alters an HTTP route or route group. | Read `references/http-routers.md` in full. |
+| The change adds or alters module-owned HTTP middleware. | Read `references/http-middleware.md` in full. |
+| The change lists a collection with pagination, ordering, or filters. | Read `references/pagination-filtering.md` in full. |
+| The requested HTTP change includes API documentation. | Read `references/api-documentation.md` in full. |
 | The selected flow cannot follow one of these contracts. | Read `references/adr-exceptions.md` in full before choosing the exception. |
 
 *Done when:* every selected contract has been read in full and no unselected
