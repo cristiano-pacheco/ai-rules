@@ -202,7 +202,7 @@ migration. It remains an independent global Go-quality skill.
 | GS-12 | `go-service`: anti-pattern and Workflow | Replace | `SKILL.md#impact-map-and-completion` | Retain relevant artifact discovery; use universal evidence. |
 | GU-01 | `go-unit-tests`: When to Use and Before Writing Tests | Carry | `references/unit-tests.md#selection` | Select the smallest deterministic seam and its meaningful cases. |
 | GU-02 | `go-unit-tests`: dependency-suite examples | Replace | `references/unit-tests.md#dependent-code` | Preserve behavior-oriented suite setup with local test tools; neutralize project code. |
-| GU-03 | `go-unit-tests`: standalone-function examples | Carry | `references/unit-tests.md#pure-code` | Retain simple table-driven tests for pure values and functions. |
+| GU-03 | `go-unit-tests`: standalone-function examples | Replace | `references/unit-tests.md#pure-code` | Use named AAA subtests for pure values and functions so each failure names its behavior directly. |
 | GU-04 | `go-unit-tests`: Mock Rules | Carry | `references/unit-tests.md#doubles` | Use doubles at external seams and prefer observable behavior. |
 | GU-05 | `go-unit-tests`: Arrange-Act-Assert and Code Style | Replace | `references/unit-tests.md#structure` | Retain AAA clarity; permit pure helpers for fixtures and assertions. |
 | GU-06 | `go-unit-tests`: Completion | Replace | `SKILL.md#impact-map-and-completion` | Unit tests are necessary evidence for deterministic boundaries, plus universal lint and integration gates. |

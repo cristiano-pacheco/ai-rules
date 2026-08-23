@@ -110,17 +110,24 @@ not add an alternate runtime wiring path.
 
 ## Assert the observable result
 
-Every test has Arrange, Act, Assert comments. Assert the returned output, the
-persisted state, each introduced controlled side effect, and the negative state
-on an error path. Test a repository through its port-visible behavior. Test a
-use case through `Execute(ctx, input)` with real validation and migrations.
+Arrange, Act, Assert (AAA) is mandatory for every integration-test scenario.
+Arrange creates the data, provider expectations, and expected outcome for one
+case. Act calls the port or `Execute` once. Assert checks the output, persisted
+state, introduced controlled side effects, and negative state on an error path.
+The three comments stay visible, even when `SetupTest` provides shared
+infrastructure.
 
-Use `s.Run` for independent value variants. For expected outcomes, assert the
-module's typed `errs.Err...` value. The production change owns the stable code
-and every module locale entry. For unexpected failures, assert that the
-original error remains recognizable with `ErrorIs` when the contract permits
-it. Do not assert tracing internals, logger formatting, or raw SQL that the
-behavior does not expose.
+Use a named `s.Run` when independent scenarios belong in one test method. Give
+each subtest a behavior name and a complete AAA block. Keep scenario inputs in
+the subtest instead of a table so a failure names the behavior directly. Test a
+repository through its port-visible behavior. Test a use case through
+`Execute(ctx, input)` with real validation and migrations.
+
+For expected outcomes, assert the module's typed `errs.Err...` value. The
+production change owns the stable code and every module locale entry. For
+unexpected failures, assert that the original error remains recognizable with
+`ErrorIs` when the contract permits it. Do not assert tracing internals, logger
+formatting, or raw SQL that the behavior does not expose.
 
 Use the caller context for every SUT and adapter call. Services that return an
 error log it in production before returning it. Repositories translate known
@@ -133,6 +140,8 @@ persisted state.
 - The file has the `integration` build tag and mirrors the changed source path.
 - Containers, migrations, table cleanup, and fresh provider doubles isolate
   each test.
+- Every scenario has visible AAA comments. Named subtests keep their own input,
+  action, and assertion so the failing behavior is clear.
 - Success and failure cases prove output, persisted state, side effects, and
   negative state.
 - The test uses the owner module's Fx graph or the same raw constructors and

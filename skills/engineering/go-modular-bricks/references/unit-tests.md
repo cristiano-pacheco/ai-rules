@@ -21,9 +21,14 @@ stable locale entries in the owning module.
 ## Test pure code
 
 For a function, value object, enum, mapper, or dependency-free service, use
-top-level tests. Name every case `Test<TypeOrFunction>_<Scenario>_<Result>`.
-Use a table when one operation has several independent inputs. Keep each test
-in Arrange, Act, Assert order.
+one top-level `Test<TypeOrFunction>` function with one named `t.Run` per
+behavior. Write the subtest name as the behavior that failed. Keep the input,
+action, and expected result inside that subtest so the failure identifies the
+scenario without tracing a table row.
+
+Arrange, Act, Assert (AAA) is mandatory. Every `t.Run` has all three comments,
+in that order. Arrange creates only that scenario's inputs and expected values.
+Act calls the behavior once. Assert checks its observable result.
 
 ```go
 package enum_test
@@ -33,56 +38,62 @@ import (
 
 	"example.com/project/internal/modules/catalog/enum"
 	"example.com/project/internal/modules/catalog/errs"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewProductState_AllowedValues_ReturnState(t *testing.T) {
-	// Arrange
-	tests := []struct {
-		name  string
-		value string
-	}{
-		{name: "draft", value: enum.ProductStateDraft},
-		{name: "published", value: enum.ProductStatePublished},
-	}
+func TestNewProductState(t *testing.T) {
+	t.Run("draft returns product state", func(t *testing.T) {
+		// Arrange
+		input := enum.ProductStateDraft
+		expected := enum.ProductStateDraft
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Act
-			state, err := enum.NewProductState(tt.value)
+		// Act
+		state, err := enum.NewProductState(input)
 
-			// Assert
-			require.NoError(t, err)
-			assert.Equal(t, tt.value, state.String())
-		})
-	}
-}
+		// Assert
+		require.NoError(t, err)
+		require.Equal(t, expected, state.String())
+	})
 
-func TestNewProductState_UnknownValue_ReturnsTypedError(t *testing.T) {
-	// Arrange
-	value := "retired"
+	t.Run("published returns product state", func(t *testing.T) {
+		// Arrange
+		input := enum.ProductStatePublished
+		expected := enum.ProductStatePublished
 
-	// Act
-	state, err := enum.NewProductState(value)
+		// Act
+		state, err := enum.NewProductState(input)
 
-	// Assert
-	require.ErrorIs(t, err, errs.ErrInvalidProductState)
-	assert.Equal(t, enum.ProductState{}, state)
+		// Assert
+		require.NoError(t, err)
+		require.Equal(t, expected, state.String())
+	})
+
+	t.Run("unknown value returns typed error", func(t *testing.T) {
+		// Arrange
+		input := "retired"
+
+		// Act
+		state, err := enum.NewProductState(input)
+
+		// Assert
+		require.ErrorIs(t, err, errs.ErrInvalidProductState)
+		require.Empty(t, state)
+	})
 }
 ```
 
-Use `require` for preconditions and errors that must stop the test. Use
-`assert` or the equivalent `suite.Suite` method for value comparisons. Do not
-test span internals, log formatting, or an implementation's private helper.
+Use `require` for preconditions, errors, and values that must stop the test.
+Use the equivalent `suite.Suite` method when the test uses a suite. Do not test
+span internals, log formatting, or an implementation's private helper.
 
 ## Test code with collaborators
 
 When a deterministic implementation has injected collaborators, use a
 `suite.Suite`. Keep the file order as package, imports, suite type,
 `SetupTest`, suite runner, then test methods. `SetupTest` creates a fresh SUT
-and mocks for every test. Generate mocks in `test/mocks/` with the project's
-mock generator; construct them with `s.T()` so cleanup checks expectations.
+and mocks for every test. Each test method still uses explicit AAA blocks for
+its scenario. Generate mocks in `test/mocks/` with the project's mock
+generator; construct them with `s.T()` so cleanup checks expectations.
 
 ```go
 package service_test
@@ -136,7 +147,8 @@ module's `fx.go`; the unit test calls the constructor directly.
 
 - Every changed deterministic boundary has success, expected-error, and
   behavior-changing edge-case evidence.
-- Test names state the operation, scenario, and observable result.
+- Each named subtest has a complete AAA block and a behavior name that makes a
+  failing scenario obvious without reading a table.
 - Tests use caller context where the method accepts it and compare typed errors
   with `ErrorIs`.
 - The test package, mock location, constructor, interface assertion, Fx
