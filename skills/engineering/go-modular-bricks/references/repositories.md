@@ -247,7 +247,7 @@ together, add `WithTX`, `CreateTX`, and `UpdateTX` to
 `internal/modules/<module>/repository/<entity>_repository.go`. Keep these
 methods out of `internal/modules/<module>/ports/<entity>_repository.go`: the
 application port continues to hide GORM. A caller that needs atomic writes in
-more than one repository uses the use-case `TransactionManager` instead.
+more than one repository uses the use-case `Transaction.WithTX` instead.
 
 `WithTX` owns the boundary. It derives the transaction from the caller context,
 passes the active `*gorm.DB` only to the callback, rolls back when the callback

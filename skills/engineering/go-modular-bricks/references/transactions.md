@@ -4,7 +4,7 @@
 
 Use a use-case transaction when one business operation must commit changes made
 through more than one repository as one unit. The use case owns the scope; a
-consumer-owned transaction-manager port hides GORM or another database driver.
+consumer-owned transaction port hides GORM or another database driver.
 Use a repository-local transaction only when one repository operation contains
 every write and consistency rule.
 
@@ -13,25 +13,24 @@ Move that boundary to the use case instead.
 
 ## Recipe: application transaction
 
-Define the port in `internal/modules/<module>/ports/transaction_manager.go` and
-bind its concrete adapter in the composition root.
+Define the port in `internal/modules/<module>/ports/transaction.go` and bind
+its concrete adapter in the composition root.
 
 ```go
 package ports
 
 import "context"
 
-// TransactionManager runs an application operation in one persistence
-// transaction. Repositories use the callback context for every participating
-// call.
-type TransactionManager interface {
-	Within(ctx context.Context, fn func(context.Context) error) error
+// Transaction runs an application operation in one persistence transaction.
+// Repositories use the callback context for every participating call.
+type Transaction interface {
+	WithTX(ctx context.Context, fn func(context.Context) error) error
 }
 ```
 
 Validate before opening the transaction. Put authorization, state changes,
 repository calls, and output assignment inside the callback. Return the first
-error so the manager can roll back.
+error so `WithTX` can roll back.
 
 ```go
 func (uc *OrderConfirmUseCase) Execute(
@@ -44,7 +43,7 @@ func (uc *OrderConfirmUseCase) Execute(
 	}
 
 	var output OrderConfirmOutput
-	err := uc.transactions.Within(ctx, func(txCtx context.Context) error {
+	err := uc.transaction.WithTX(ctx, func(txCtx context.Context) error {
 		order, err := uc.orders.Confirm(txCtx, input.OrderID)
 		if err != nil {
 			return err
