@@ -1,3 +1,3 @@
 interface:
-  display_name: "ai-code-review"
+  display_name: "ai-review-changes"
   short_description: "Review a diff on standards and spec"
