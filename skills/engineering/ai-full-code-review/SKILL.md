@@ -1,5 +1,5 @@
 ---
-name: ai-code-review
+name: ai-full-code-review
 description: Review a branch diff for production risk.
 disable-model-invocation: true
 ---
