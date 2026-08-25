@@ -11,14 +11,14 @@ A named validator always has two files:
 1. `internal/modules/<module>/ports/<name>_validator.go`
 2. `internal/modules/<module>/validator/<name>_validator.go`
 
-The port has the documented interface only. The implementation order is imports,
-package constants, type, interface assertion, constructor, public methods, then
-private methods.
+The port contains only the documented interface. Keep the implementation in
+this order: package, imports, constants, type, interface assertion, constructor,
+public methods, then private methods.
 
 ## Recipe: stateless validator
 
-Use a stateless validator by default. Put thresholds in package-level constants
-and return a typed module error for each rejected business condition.
+Prefer a stateless validator. Put thresholds in package-level constants and
+return a typed module error for each rejected business condition.
 
 ```go
 package ports
@@ -109,8 +109,8 @@ func (v *UsernameValidator) Validate(ctx context.Context, username string) error
 }
 ```
 
-Use one `Validate` method for one purpose. A validator that owns a coherent set
-of checks may use descriptive methods such as `ValidateEmail` and
+Give one `Validate` method one purpose. A validator that owns a coherent set of
+checks may instead use descriptive methods such as `ValidateEmail` and
 `ValidatePasswordMatch`.
 
 ## Wire and test

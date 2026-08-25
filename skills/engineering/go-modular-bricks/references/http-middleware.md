@@ -2,15 +2,15 @@
 
 ## Recipe: add a scoped transport concern
 
-Create module-owned middleware only when the module owns a real HTTP concern.
+Create module-owned middleware only for an HTTP concern owned by that module.
 Place it in `internal/modules/<module>/http/chi/middleware/<name>_middleware.go`
 beside the router. Keep cross-module technical middleware in shared
 infrastructure. Keep the file order as imports, concrete type when dependencies
 exist, pointer constructor, middleware method, then private methods.
 
-Middleware may establish transport context, enforce a transport concern, or
-adapt request and response behavior for its scoped routes. It does not contain
-business policy, call a repository, or replace a use case. Keep authorization
+Middleware may establish transport context, enforce a transport rule, or adapt
+request and response behavior for its scoped routes. Keep business policy,
+repository calls, and use-case behavior outside middleware. Keep authorization
 policy in its owning application boundary unless an explicit module transport
 contract says otherwise.
 
@@ -31,8 +31,8 @@ func SetPreviewContext(next http.Handler) http.Handler {
 }
 ```
 
-Use the project error renderer as a constructor dependency when stateful
-middleware can reject a request. Define an expected transport error in the
+When stateful middleware can reject a request, inject the project error
+renderer through its constructor. Define an expected transport error in the
 owner module's `errs/errs.go` only when it has a stable module meaning, and add
 every locale entry before returning it. Middleware that only enriches context
 has no typed error, locale, logger, port, or Fx binding.

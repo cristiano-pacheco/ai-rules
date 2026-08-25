@@ -2,8 +2,8 @@
 
 ## Recipe: map one behavior through its owner
 
-Build each business behavior as one visible path. Record its owner and every
-representation before editing:
+Trace each business behavior as one visible path. Before editing, record its
+owner and every representation it crosses:
 
 ```text
 entry point -> input mapping -> use case -> consumer-owned port -> adapter -> infrastructure
@@ -46,10 +46,10 @@ lowercase internal message and matching HTTP status, then add the code to every
 existing module locale. Technical failures retain their identity until the
 established entry-point error path renders them safely.
 
-The resulting path assigns business policy to the use case and technical work
-to adapters. Prove a pure deterministic boundary with a neighboring unit test.
-Prove a changed use case or persistence flow with an integration test that uses
-real controlled infrastructure. The test calls the same public boundary the
+This path keeps business policy in the use case and technical work in adapters.
+Prove a pure deterministic boundary with a neighboring unit test. Prove a
+changed use case or persistence flow with an integration test backed by real,
+controlled infrastructure. The test calls the same public boundary the
 entry point calls and asserts its output, typed errors, persisted state, and
 side effects.
 

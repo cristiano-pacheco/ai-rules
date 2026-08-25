@@ -2,9 +2,9 @@
 
 ## Recipe: add a module locale file system
 
-Keep translations that belong to a module in
-`internal/modules/<module>/locales/`. Store each language in its own JSON file
-and embed that directory from `locales.go`.
+Keep module-owned translations in `internal/modules/<module>/locales/`.
+Store each language in its own JSON file and embed the directory from
+`locales.go`.
 
 ```text
 internal/modules/catalog/locales/
@@ -50,8 +50,8 @@ server's i18n module collects the Fx group as `[]locale.FileSystem`.
 
 ## Recipe: add an expected-error translation
 
-When an expected module error changes, allocate and return the typed error in
-`internal/modules/<module>/errs/errs.go`, then add its stable code below
+When an expected module error changes, allocate and return its typed error in
+`internal/modules/<module>/errs/errs.go`. Then add its stable code below
 `errors` in every existing module locale. Use the exact code as the key and a
 safe sentence-case message as the value.
 

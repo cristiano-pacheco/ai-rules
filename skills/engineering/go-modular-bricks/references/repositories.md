@@ -27,10 +27,10 @@ type InvoiceRepository interface {
 }
 ```
 
-The implementation holds the shared database wrapper only. Put its assertion
+The implementation holds only the shared database wrapper. Put its assertion
 immediately below the type and use named fields in the pointer constructor.
-Each I/O method starts the adapter span, receives its caller context, and ends
-the span with `defer`.
+Each I/O method receives caller context, starts the adapter span, and ends it
+with `defer`.
 
 ```go
 package repository
@@ -90,8 +90,8 @@ fx.Provide(
 `*database.ProjectDB` is the normal repository dependency. It serves reads,
 writes, transactions, and migrations through one configured primary database.
 Introduce `*database.ProjectReadDB` and `*database.ProjectWriteDB` only when
-the deployment has distinct read and write connections, such as a read replica
-and a primary. A read database can be stale. Do not add this split merely to
+the deployment has distinct read and write connections, such as a replica and
+a primary. A read database can be stale. Do not add this split merely to
 label ordinary queries.
 
 Embed both wrappers and select one explicitly. Both promote `DB`, so `r.DB` is
@@ -256,9 +256,9 @@ func (r *InvoiceRepository) FindByLabelID(ctx context.Context, labelID uint64) (
 }
 ```
 
-For a fixed update that must write `false`, `0`, or an empty string, select the
-columns or use a map. Plain `Updates(model)` omits zero values. Reload an
-updated value with `Limit(1)` before `First(ctx)`.
+For a fixed update that must write `false`, `0`, or an empty string, select its
+columns explicitly or use a map. Plain `Updates(model)` omits zero values.
+Reload an updated value with `Limit(1)` before `First(ctx)`.
 
 ```go
 func (r *InvoiceRepository) Update(
@@ -445,9 +445,9 @@ func (r *InvoiceRepository) UpdateTX(
 ```
 
 Call the methods only from the `WithTX` callback, return the first error, and
-let `WithTX` finalize the transaction. The adapter does not log database
-errors; the entry point logs the returned error once and renders its declared
-module error through the established locale path.
+let `WithTX` finalize the transaction. The adapter returns database errors
+without logging them. The entry point logs the returned error once and renders
+declared module errors through the established locale path.
 
 ```go
 func (r *InvoiceRepository) CreateAndUpdate(
@@ -497,4 +497,5 @@ test harness can induce one.
   receives the callback transaction and uses its caller context.
 - The callback returns the first failure; integration coverage proves rollback
   and successful commit for the atomic operation.
-- Add integration evidence for changed persistence behavior when that test contract applies.
+- Add integration evidence for changed persistence behavior when that test
+  contract applies.

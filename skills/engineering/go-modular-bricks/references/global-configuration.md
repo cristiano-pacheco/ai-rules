@@ -14,10 +14,10 @@ config/
 
 `config/base.yaml` is required. It declares the complete configuration shape
 and safe defaults. `local.yaml`, `test.yaml`, and `production.yaml` are optional
-overlays. The Bricks loader resolves `APP_CONFIG_DIR`, defaulting to `config`,
-loads `base.yaml`, then resolves lowercase `APP_ENV`, defaulting to `local`, and
-overlays `<APP_ENV>.yaml` when that file exists. Use `bricks/pkg/config` as the
-only loader.
+overlays. The Bricks loader resolves `APP_CONFIG_DIR`, which defaults to
+`config`, and loads `base.yaml`. It then resolves lowercase `APP_ENV`, which defaults to
+`local`, and overlays `<APP_ENV>.yaml` when that file exists. Use
+`bricks/pkg/config` as the only loader.
 
 ```yaml
 app:
@@ -40,8 +40,8 @@ library.
 Global platform sections belong under `app` beside module sections. A module
 section is `app.<module>`, for example `app.catalog`. Do not place a module
 setting in `internal/shared` or duplicate the same setting in a command flag.
-If a flag deliberately overrides configuration, make the precedence explicit in
-the command reference and test it.
+If a flag deliberately overrides configuration, document its precedence in the
+command reference and test it.
 
 ## Test the load path
 

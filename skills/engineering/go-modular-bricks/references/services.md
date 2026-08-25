@@ -2,8 +2,8 @@
 
 ## Choose the service shape
 
-Use a service for a reusable, single-responsibility capability consumed by use
-cases or other services. A pure capability needs only
+Use a service for a reusable capability with one responsibility, consumed by
+use cases or other services. A pure capability needs only
 `internal/modules/<module>/service/<name>_service.go`. An I/O capability uses a
 consumer-owned port in `ports/`, an implementation in `service/`, and a `dto/`
 file when a service-specific input or output improves the contract.
@@ -89,7 +89,7 @@ func (s *SendEmailConfirmationService) Execute(
 }
 ```
 
-Every I/O method takes `context.Context` first, starts the Bricks span with
+Every I/O method takes `context.Context` first, starts a Bricks span named
 `StructName.MethodName`, and defers `span.End()`. A service that returns an
 error has a `logger logger.Logger` field, and logs each returned error directly
 before returning it with `s.logger.Error(..., logger.Error(err))`. Name the
@@ -97,8 +97,8 @@ constructor parameter `logger`, never `log` or `l`.
 
 ## Recipe: pure service
 
-Use a dependency-free implementation for deterministic work such as hashing or
-formatting. Omit context, tracing, logger, configuration, and a port unless
+Keep deterministic work such as hashing or formatting in a dependency-free
+implementation. Omit context, tracing, logger, configuration, and a port unless
 another module genuinely consumes it as a boundary.
 
 ```go

@@ -3,8 +3,8 @@
 ## Recipe: add a module-owned template
 
 Put UI templates under `internal/modules/<module>/ui/templates/`. A template
-belongs to the module whose behavior supplies its data and decides when it is
-rendered. Keep its static partials next to it when they have the same owner;
+belongs to the module whose behavior supplies its data and decides when to
+render it. Keep its static partials next to it when they have the same owner;
 place reusable cross-module technical rendering support in `internal/shared`.
 
 ```text
@@ -13,9 +13,9 @@ internal/modules/catalog/ui/templates/
 └── product-published.html.tmpl
 ```
 
-Embed the template files and parse them once in a pointer-returning
-constructor. Constructor-time parsing is fallible setup work, so return the
-error with operation context. Use named fields and keep the file order as
+Embed the template files and parse them once in a pointer-returning constructor.
+Because constructor-time parsing can fail, return errors with operation
+context. Use named fields and keep the file order as
 package, imports, embedded files, type, constructor, public methods, then
 private methods.
 
@@ -118,8 +118,8 @@ func (r *ProductPublishedRenderer) Render(
 }
 ```
 
-Register the parsing constructor and, when it is a port adapter, its concrete
-renderer from the module composition root:
+Register the parsing constructor in the module composition root. When the
+renderer is a port adapter, register its concrete implementation there too:
 
 ```go
 fx.Provide(

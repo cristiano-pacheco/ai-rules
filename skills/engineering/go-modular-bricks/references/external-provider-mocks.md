@@ -3,9 +3,9 @@
 ## Keep the integration boundary real
 
 An integration suite uses the real database, migrations, cache, local services,
-validators, repositories, and use case. Replace only a provider that crosses
-the process boundary and cannot be controlled by the test, such as an email
-gateway, payment API, or remote HTTP service.
+validators, repositories, and use case. Replace only an external provider that
+remains outside test control, such as an email gateway, payment API, or remote
+HTTP service.
 
 The provider contract stays consumer-owned at
 `internal/modules/<module>/ports/<name>_provider.go`. Its concrete adapter
@@ -13,7 +13,7 @@ lives in `internal/modules/<module>/provider/<name>_provider.go`, retains the
 compile-time assertion below the type, returns a pointer from
 `New<Name>Provider`, receives caller context, starts its adapter span, logs a
 returned I/O error, and binds to the port in the owner `fx.go`. The integration
-suite replaces that binding only at the uncontrolled provider seam.
+suite replaces that binding only at this uncontrolled seam.
 
 ## Configure the generated mock
 
@@ -55,11 +55,11 @@ func (s *OrderConfirmTestSuite) expectReceipt() {
 ```
 
 Use `.Maybe()` only when a metric, logger, or optional provider call is not the
-behavior under test. A provider failure test returns a real sentinel error from
-the mock, calls the use case with a caller context, and asserts the documented
-error path and negative persisted state. The provider adapter owns technical
-error logging; a module maps only expected business outcomes to `errs` and
-locale entries.
+behavior under test. In a provider-failure test, return a real sentinel error
+from the mock, call the use case with a caller context, and assert the
+documented error path and negative persisted state. The provider adapter owns
+technical error logging; a module maps only expected business outcomes to
+`errs` and locale entries.
 
 ## Check before finishing
 

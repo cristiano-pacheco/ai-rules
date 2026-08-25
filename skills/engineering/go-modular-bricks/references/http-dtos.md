@@ -21,15 +21,16 @@ type ProductResponse struct {
 }
 ```
 
-A DTO carries no business methods, GORM tag, persistence model, provider SDK
-value, or application policy. HTTP DTOs never become use-case inputs or
+A DTO contains no business methods, GORM tags, persistence models, provider SDK
+values, or application policy. HTTP DTOs never become use-case inputs or
 outputs, even when fields match. Use pointers only when the HTTP contract must
 distinguish an omitted value from `null`, an empty string, or a zero value.
 
 ## Recipe: map at the transport boundary
 
-Decode the request into its DTO with the established request helper. Check URL,
-query, content-type, malformed-body, and external-value syntax at this boundary.
+Decode the request into its DTO with the established request helper. Validate
+URL and query syntax, content type, body syntax, and other external values at
+this boundary.
 Map the DTO to the operation input explicitly. Set `ctx := r.Context()` and
 call the decorated use case with `ctx`. Map its output to a response DTO before
 encoding it. Keep a single-use mapping in its handler; move a reused or
@@ -71,8 +72,8 @@ query string, path value, HTTP request, response DTO, or GORM model.
 
 ## Recipe: map a collection contract
 
-Map each accepted query value to a dedicated list input and map collection
-items and promised metadata to a response DTO. Reject malformed query syntax
+Map accepted query values to a dedicated list input. Map collection items and
+promised metadata to a response DTO. Reject malformed query syntax
 before calling the use case. The repository receives only the application
 values it needs, never `url.Values` or a transport pagination type.
 

@@ -61,8 +61,8 @@ func NewOrderConfirmUseCase(
 }
 ```
 
-Inject ports, never an adapter concrete type. The constructor returns a pointer
-and initializes every dependency by name.
+Inject ports rather than concrete adapter types. The constructor returns a
+pointer and initializes every dependency by name.
 
 ## Recipe: write `Execute`
 
@@ -127,8 +127,8 @@ if err != nil {
 }
 ```
 
-If this public boundary cannot express the needed interaction, stop and record
-the architectural exception before coupling to an internal package.
+If the public boundary cannot express the interaction, stop and record an
+architecture exception before coupling to an internal package.
 
 ## Wire the decorated use case
 
@@ -162,7 +162,7 @@ constructor to its `fx.Provide` group.
 - One operation has one `Execute(ctx, input) (output, error)` contract.
 - Input validation is the first action and every returned collaborator error is
   logged.
-- Expected results use typed module errors; ports are interfaces.
+- Expected outcomes use typed module errors; ports are interfaces.
 - Generic execution telemetry stays in the decorated boundary; use-case
   telemetry marks only meaningful domain decisions, events, or failures.
 - No raw errors, shared contracts, or standalone helpers were introduced.

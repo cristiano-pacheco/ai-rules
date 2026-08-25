@@ -2,7 +2,7 @@
 
 ## Recipe: add a business command
 
-Keep `main.go` limited to `cmd.Execute()`. Put every executable operation in
+Keep `main.go` limited to `cmd.Execute()`. Put each executable operation in
 `cmd/<command>.go` and register its Cobra command from `init`. A business
 command parses flags, builds one application input, resolves an injected public
 use case, calls `Execute`, and renders only its command result. It does not
@@ -75,9 +75,8 @@ func runCommand(ctx context.Context, invoke any) (runErr error) {
 infrastructure and modules required by the command. Inspect it before use and
 preserve its lifecycle, logger, and error-rendering behavior. If the project
 does not have it, add it in the command package as the single command
-composition seam. Keep the module-specific `runPublishProduct` function small
-enough that it only supplies the decorated public use case and application
-input.
+composition seam. The module-specific `runPublishProduct` function should
+supply only the decorated public use case and application input.
 
 Use the same file order for a command: package, imports, flag variables,
 `cobra.Command`, `init`, then command runner. Keep flags at package scope only
@@ -91,8 +90,8 @@ existing module locale; do not create a command error package.
 `cmd/server.go` is infrastructure. It creates exactly one Fx application from
 the Bricks platform modules required by the enabled capabilities,
 `internal/shared.Module`, and every enabled business module. It starts and
-stops the application through Fx. A module is incomplete until this composition
-includes its `Module`.
+stops the application through Fx. A module is not wired into the server until
+this composition includes its `Module`.
 
 ```go
 package cmd

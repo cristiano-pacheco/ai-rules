@@ -25,9 +25,9 @@ type InventoryClient interface {
 }
 ```
 
-The client owns transport mapping, I/O tracing, and contextual logging. It does
-not choose business retries, transactions, or state transitions. Use the
-caller context for every outbound request. The constructor returns a pointer,
+The client owns transport mapping, I/O tracing, and contextual logging.
+Application policy owns business retries, transactions, and state transitions.
+Use the caller context for every outbound request. The constructor returns a pointer,
 the type asserts its port, and Fx binds it in the owning module.
 
 ```go
@@ -90,11 +90,10 @@ func (c *InventoryClient) Reserve(
 }
 ```
 
-Place the private transport request and response types beside the adapter. Map
-them explicitly to module DTOs. Map known remote business outcomes to the
-owning module's stable errors and locale entries. Return unknown transport or
-decode errors wrapped with operation context. The entry point renders them
-safely.
+Place private transport request and response types beside the adapter, then map
+them explicitly to module DTOs. Translate known remote business outcomes to
+the owning module's stable errors and locale entries. Wrap unknown transport
+or decode errors with operation context. The entry point renders them safely.
 
 ```go
 fx.Provide(

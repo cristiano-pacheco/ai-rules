@@ -2,9 +2,9 @@
 
 ## Trace adapter I/O
 
-Add an OTEL span to every changed repository, client, provider, cache, or I/O
-service method. The method takes caller `context.Context` first. Its first
-statements create and defer the span, named `StructName.MethodName`.
+Add an OTEL span to each changed repository, client, provider, cache, or I/O
+service method. Put the caller's `context.Context` first. Start the method by
+creating and deferring a span named `StructName.MethodName`.
 
 ```go
 package provider
@@ -48,8 +48,8 @@ public methods, then private methods. Bind the constructor once in
 `internal/modules/<module>/fx.go` with `fx.As(new(ports.ReceiptProvider))`.
 Keep a repository's known database-error translation in its adapter and leave
 unknown technical errors unchanged. An I/O service logs each returned error.
-The span and log carry the caller context; neither creates a background context
-nor a new module error or locale entry.
+The span and log use the caller context. They create neither a background
+context nor a new module error or locale entry.
 
 ## Trace I/O service operations
 
@@ -86,9 +86,9 @@ boundary in place.
 
 Use a unit test for the pure or mocked behavior and an integration test for the
 changed I/O or use-case flow. Pass a caller context, assert returned typed or
-preserved errors, persisted state, and provider side effects. Do not test the
-implementation of `trace.Span`; the trace is an operational consequence of the
-production path.
+preserved errors, persisted state, and provider side effects. Treat the trace
+as an operational consequence of the production path rather than testing the
+implementation of `trace.Span`.
 
 ## Check before finishing
 

@@ -2,8 +2,8 @@
 
 ## Recipe: add configuration owned by a module
 
-Create `internal/modules/<module>/config/config.go` only when the module owns
-a setting. Keep its `Config` type in `package config`; do not place module
+Create `internal/modules/<module>/config/config.go` only for settings owned by
+the module. Keep its `Config` type in `package config`; do not place module
 settings in `internal/shared/config` or pass primitive configuration values
 through unrelated constructors.
 
@@ -50,8 +50,8 @@ var Module = fx.Module(
 )
 ```
 
-Keep the existing module's `fx.go` ordering. Place the typed configuration
-provider with other module-wide inputs before constructors that consume it. A
+Preserve the module's existing `fx.go` ordering. Place the typed configuration
+provider with other module-wide inputs, before constructors that consume it. A
 constructor receives `config.Config`, not a YAML map, a global configuration
 type, or an individual primitive supplied separately.
 
@@ -65,9 +65,8 @@ func NewPublicationService(cfg config.Config) *PublicationService {
 }
 ```
 
-Use a pointer constructor only when initialization must perform fallible I/O;
-then return `(*PublicationService, error)` and wrap the setup error with its
-operation. A pure configuration consumer has no context, span, or logger solely
+When initialization performs fallible I/O, return
+`(*PublicationService, error)` and wrap setup errors with the failed operation. A pure configuration consumer has no context, span, or logger solely
 for receiving configuration. An I/O adapter still takes caller context first,
 creates its adapter span, and logs a returned I/O error through the local logger
 convention.

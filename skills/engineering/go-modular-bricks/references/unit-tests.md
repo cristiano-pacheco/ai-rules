@@ -12,8 +12,8 @@ deterministic contract. Put it beside the implementation:
 | `internal/modules/<module>/mapper/<name>_mapper.go` | `internal/modules/<module>/mapper/<name>_mapper_test.go` |
 | `internal/modules/<module>/service/<name>_service.go` | `internal/modules/<module>/service/<name>_service_test.go` |
 
-Use the external package name, such as `validator_test`. Test a use case or a
-repository through the integration contract instead. Select success, each
+Use the external package name, such as `validator_test`. Test use cases and
+repositories through their integration contracts instead. Cover success, each
 expected typed error, and boundary values that can change behavior. When the
 change creates an expected error, assert the `errs.Err...` value and update its
 stable locale entries in the owning module.
@@ -26,8 +26,8 @@ behavior. Write the subtest name as the behavior that failed. Keep the input,
 action, and expected result inside that subtest so the failure identifies the
 scenario without tracing a table row.
 
-Arrange, Act, Assert (AAA) is mandatory. Every `t.Run` has all three comments,
-in that order. Arrange creates only that scenario's inputs and expected values.
+Every `t.Run` follows Arrange, Act, Assert (AAA), with all three comments in
+that order. Arrange creates only that scenario's inputs and expected values.
 Act calls the behavior once. Assert checks its observable result.
 
 ```go
@@ -82,7 +82,8 @@ func TestNewProductState(t *testing.T) {
 }
 ```
 
-Use `require` for preconditions, errors, and values that must stop the test.
+Use `require` for preconditions, errors, and assertions whose failure must stop
+the test.
 Use the equivalent `suite.Suite` method when the test uses a suite. Do not test
 span internals, log formatting, or an implementation's private helper.
 

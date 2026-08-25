@@ -38,8 +38,8 @@ boolean, numeric, and timestamp columns to Go pointers. Map `TIMESTAMPTZ` to
 `time.Time`, `JSONB` to `[]byte` with `gorm:"type:jsonb"`, numeric values to
 `int64` or `*int64`, and small ordered values to `int` or `*int`.
 
-Use GORM's snake-case convention. Add a tag only for a primary key, index,
-unique index, JSONB type, default, or a real exception to the convention. A
+Follow GORM's snake-case convention. Add a tag only for a primary key, index,
+unique index, JSONB type, default, or a documented exception to the convention. A
 composite index gives every participating field the same index name:
 
 ```go
@@ -47,9 +47,10 @@ InvoiceID uint64 `gorm:"uniqueIndex:idx_invoice_line"`
 LineID    uint64 `gorm:"uniqueIndex:idx_invoice_line"`
 ```
 
-Do not put JSON tags, domain behavior, repository queries, or transport values
-on a model. Do not use `database/sql` nullable values. Keep fields in migration
-order. Change a deployed table or column only through a migration.
+Keep JSON tags, domain behavior, repository queries, and transport values out
+of models. Use Go pointers instead of `database/sql` nullable values. Keep
+fields in migration order. Change deployed tables and columns only through
+migrations.
 
 ## Examples
 

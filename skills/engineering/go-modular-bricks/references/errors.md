@@ -53,8 +53,9 @@ Apply this sequence:
 }
 ```
 
-The code, internal message, status, and locale key are a compatibility contract.
-Keep them stable after release unless the change has an accepted migration.
+The code, internal message, status, and locale key form a compatibility
+contract. Keep them stable after release unless an accepted migration changes
+them.
 
 ## Recipe: validation error with field details
 
@@ -82,8 +83,8 @@ func NewProfileValidationError(details []brickserrs.Detail) *brickserrs.Error {
 }
 ```
 
-This helper is allowed at package scope because it only constructs an error. Do
-not turn the error package into a service package.
+This helper belongs at package scope because it only constructs an error. Keep
+other application or adapter behavior out of the error package.
 
 ## Translate infrastructure at the adapter boundary
 
@@ -101,9 +102,9 @@ if err != nil {
 ```
 
 Map a missing GORM record to the module error when the module defines one;
-otherwise return `brickserrs.ErrRecordNotFound`. Return an unknown technical
-failure unchanged so diagnostics retain its identity. The entry point renders it
-safely. Never manufacture `errors.New(...)` for an expected business result.
+otherwise return `brickserrs.ErrRecordNotFound`. Return unknown technical
+failures unchanged so diagnostics retain their identity. The entry point renders
+them safely. Never manufacture `errors.New(...)` for an expected business result.
 
 ## Check before finishing
 

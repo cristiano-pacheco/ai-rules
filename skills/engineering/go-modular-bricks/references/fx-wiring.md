@@ -1,8 +1,7 @@
 # Fx composition
 
-Treat each module's `fx.go` as its composition root. It connects the module's
-application policy to adapters and contributes the module's runtime behavior to
-the application.
+Each module's `fx.go` is its composition root. It connects application policy
+to adapters and contributes the module's runtime behavior to the application.
 
 Constructors return pointers to concrete implementations. Fx binds a concrete
 adapter to the consumer-owned interface it implements. Keep a compile-time
@@ -59,9 +58,9 @@ server. Bind the concrete router as `chi.Route` and tag the result with
 through the same composition root and inject it into the router with an
 explicit name or group.
 
-Keep bindings close to the constructor that supplies them. When a dependency
-cannot be built from the selected modules and shared infrastructure, update the
-impact map instead of adding a hidden global.
+Keep bindings close to their constructors. If the selected modules and shared
+infrastructure cannot build a dependency, update the impact map rather than
+adding a hidden global.
 
 ## Examples
 

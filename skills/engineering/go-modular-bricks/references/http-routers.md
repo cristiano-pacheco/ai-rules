@@ -2,11 +2,9 @@
 
 ## Responsibility
 
-Place a module router in `http/chi/router/`.
-
-The router owns paths, HTTP methods, route groups, and middleware scope. It
-does not own application policy, validation, persistence, provider calls, or
-response mapping.
+A module router belongs in `http/chi/router/`. It owns paths, HTTP methods,
+route groups, and middleware scope. Application policy, validation, persistence,
+provider calls, and response mapping belong elsewhere.
 
 ## Structure
 
@@ -54,9 +52,8 @@ to remove a resource. Keep a bulk operation explicit in its path and method.
 ## Registration patterns
 
 Register each handler method directly. A router may receive more than one
-handler when it owns routes for closely related resources. Group routes when a
-middleware applies only to that group, so the scope stays visible and does not
-affect unrelated endpoints.
+handler for closely related resources. Group routes when middleware applies to
+only that group, keeping its scope visible and away from unrelated endpoints.
 
 Register the concrete router from the owning module's Fx composition root as a
 Bricks route contribution. The server discovers the route through its route

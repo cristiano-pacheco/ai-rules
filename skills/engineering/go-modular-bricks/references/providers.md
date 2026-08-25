@@ -2,8 +2,9 @@
 
 ## Recipe: adapt a provider SDK
 
-Create a provider adapter for a third-party capability such as payment,
-messaging, identity, or document signing. Put the consumer-owned contract at
+Create a provider adapter when the module needs a third-party capability such
+as payment, messaging, identity, or document signing. Put the consumer-owned
+contract at
 `internal/modules/<module>/ports/<name>_provider.go` and the SDK adapter at
 `internal/modules/<module>/provider/<name>_provider.go`. Name both for the
 capability the module needs, not for the vendor.
@@ -63,7 +64,7 @@ func (p *ReceiptProvider) Issue(
 }
 ```
 
-Translate documented provider outcomes that have application meaning to stable
+Translate documented provider outcomes with application meaning to stable
 module errors. Allocate the next module error code and add every locale entry
 before returning it. Preserve an unknown SDK error with `%w`, log it once at
 the adapter, and let the entry point render it safely. Put retries, idempotency
@@ -77,7 +78,7 @@ fx.Provide(
 )
 ```
 
-Use a provider fake in integration tests only because the external system is
+Use a provider fake in integration tests only when the external system is
 uncontrolled. Test the adapter's SDK request mapping, successful response,
 known failure translation, unknown wrapped failure, context cancellation, and
 logged error path.

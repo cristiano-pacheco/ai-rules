@@ -2,9 +2,9 @@
 
 ## Decide the transaction owner
 
-Use a use-case transaction when one business operation must commit changes made
-through more than one repository as one unit. The use case owns the scope; a
-consumer-owned transaction provider creates the active GORM transaction.
+Use a use-case transaction when one business operation must commit changes
+across repositories as one unit. The use case owns the scope; a consumer-owned
+transaction provider creates the active GORM transaction.
 Use a repository-local transaction only when one repository operation contains
 every write and consistency rule.
 
@@ -129,10 +129,9 @@ fx.Provide(
 )
 ```
 
-Use `WithTX` for the normal path. Validate input before opening the
-transaction. Put authorization, state changes, repository calls, and output
-assignment inside the callback. Return the first error so `WithTX` can roll
-back.
+Prefer `WithTX`. Validate input before opening the transaction. Put
+authorization, state changes, repository calls, and output assignment inside
+the callback. Return the first error so `WithTX` can roll back.
 
 ```go
 func (uc *OrderConfirmUseCase) Execute(
@@ -170,8 +169,8 @@ callback. The repository port declares each participating `*TX` method with
 `context.Background`, create another transaction in a child repository, or
 assign a successful output before all required writes succeed.
 
-Use `CreateTX` only when the caller must control commit and rollback itself.
-After the first repository error, roll back and return it. Commit once after
+Use `CreateTX` only when the caller must control commit and rollback. After the
+first repository error, roll back and return it. Commit once after
 all writes succeed; return `tx.Commit().Error` to preserve a commit failure.
 
 ```go

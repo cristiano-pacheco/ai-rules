@@ -5,16 +5,16 @@ description: Impact map for Go services built with Bricks. Use when a Go or Bric
 
 # Go modular bricks
 
-Make the change through the smallest complete modular flow. Load only the
+Trace the change through the smallest complete modular flow. Load only the
 contracts selected by the impact map.
 
 ## 1. Build the impact map
 
 1. Inspect the requested behavior, the owning module, the closest comparable
    flow, and the module's composition code before editing.
-2. Name every affected entry point, application operation, port, adapter,
+2. List every affected entry point, application operation, port, adapter,
    representation boundary, module, shared capability, Fx registration, and
-   proof of behavior.
+   test or other proof of behavior.
 3. Mark each item as changed, reused, or unaffected. Select a reference only
    when its trigger below is marked changed or reused by the flow.
 
@@ -68,17 +68,17 @@ only route to that contract.
 | The change adds or alters use-case duration or outcome metrics. | Read `references/prometheus.md` in full. |
 | The selected flow cannot follow one of these contracts. | Read `references/adr-exceptions.md` in full before choosing the exception. |
 
-*Done when:* every selected contract has been read in full through this table,
-every bundled reference has one direct pointer here, and no reference depends
-on another reference for instructions.
+*Done when:* every selected contract has been read in full, every bundled
+reference has one direct pointer in this table, and no reference relies on
+another reference for instructions.
 
 ## 3. Implement and prove the flow
 
 1. Edit only the artifacts selected by the impact map. Keep every boundary
    explicit and register every new runtime contribution in its composition
    root.
-2. Correct a selected-path violation of a loaded contract. Record a deliberate
-   departure through the ADR process before it becomes part of the change.
+2. Fix any loaded-contract violation on the selected path. Record a deliberate
+   departure through the ADR process before implementing it.
 3. Run `make lint`, `make test`, and `make test-integration`. Record the exact
    command and result for every gate. A nonzero result or an unavailable
    prerequisite blocks completion; report the prerequisite and failure rather

@@ -2,9 +2,9 @@
 
 ## Recipe: map one representation to another
 
-Create `internal/modules/<module>/mapper/<name>_mapper.go` for a transformation
-that is reused or too large to keep at one boundary. A mapper contains functions
-only. It has no struct, interface, constructor, context, I/O, logger, database
+Create `internal/modules/<module>/mapper/<name>_mapper.go` for a reused
+transformation or one too large to keep at its boundary. A mapper contains only
+functions. It has no struct, interface, constructor, context, I/O, logger, database
 call, provider client, or Fx registration.
 
 Put public functions before private helpers. Name a public function for the
@@ -29,8 +29,8 @@ func ToOrderResponse(order model.OrderModel) dto.OrderResponse {
 }
 ```
 
-The mapper makes the source and target types explicit. It does not decide
-authorization, state transitions, persistence behavior, or validation policy.
+The mapper makes source and target types explicit. Authorization, state
+transitions, persistence behavior, and validation policy belong elsewhere.
 
 ## Recipe: collection and shared sub-mapping
 
@@ -73,9 +73,9 @@ func ToProductModel(request dto.CreateProductRequest) (model.ProductModel, error
 }
 ```
 
-Do not return an error for ordinary field copies. Do not hide a repository or
-HTTP call inside a mapper to obtain a missing field. Make that collaborator call
-in the use case or adapter, then map its result.
+Return no error for ordinary field copies. If mapping needs data from a
+repository or HTTP call, make that collaborator call in the use case or adapter,
+then map its result.
 
 ## Check before finishing
 

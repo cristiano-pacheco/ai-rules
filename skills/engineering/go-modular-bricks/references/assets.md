@@ -47,17 +47,17 @@ fx.Provide(
 )
 ```
 
-The code block applies when the shared loader consumes `fs.FS` contributions
-through `group:"asset_filesystems"`. If the project names its contribution type
-or group differently, preserve the established type and tag while keeping this
-constructor in the owning module. The server composes the collector. Handlers,
+Use this binding when the shared loader consumes `fs.FS` contributions through
+`group:"asset_filesystems"`. If the project uses a different contribution type
+or group, preserve its type and tag while keeping the constructor in the owning
+module. The server composes the collector. Handlers,
 use cases, and repositories do not read embedded assets directly.
 
-Use an asset through a narrow module service when application policy needs it.
-That service receives the caller context for I/O, starts an adapter span for
-filesystem or network work, logs returned I/O errors through the local logger,
-and returns a typed module error only for an expected business outcome. A
-pure `embed.FS` lookup needs none of those dependencies.
+When application policy needs an asset, expose it through a narrow module
+service. For filesystem or network I/O, the service receives the caller
+context, starts an adapter span, logs returned I/O errors through the local
+logger, and returns a typed module error only for an expected business outcome.
+A pure `embed.FS` lookup needs none of those dependencies.
 
 ## Test and check before finishing
 

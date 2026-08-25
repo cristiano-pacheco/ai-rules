@@ -11,9 +11,9 @@ under `test/integration/`, mirroring its implementation path:
 | `internal/modules/<module>/usecase/<noun>_<action>_usecase.go` | `test/integration/modules/<module>/usecase/<noun>_<action>_usecase_test.go` |
 | `internal/modules/<module>/repository/<entity>_repository.go` | `test/integration/modules/<module>/repository/<entity>_repository_test.go` |
 
-Use real controlled infrastructure for the database, cache, migrations, local
-services, validation, repositories, and the changed use case. List every
-dependency before writing the suite. An uncontrolled external provider is the
+Use real, controlled infrastructure for the database, cache, migrations, local
+services, validation, repositories, and changed use case. List every dependency
+before writing the suite. An uncontrolled external provider is the
 only dependency replaced by a double.
 
 ## Build the suite
@@ -110,7 +110,7 @@ not add an alternate runtime wiring path.
 
 ## Assert the observable result
 
-Arrange, Act, Assert (AAA) is mandatory for every integration-test scenario.
+Every integration-test scenario follows Arrange, Act, Assert (AAA).
 Arrange creates the data, provider expectations, and expected outcome for one
 case. Act calls the port or `Execute` once. Assert checks the output, persisted
 state, introduced controlled side effects, and negative state on an error path.
@@ -119,8 +119,8 @@ infrastructure.
 
 Use a named `s.Run` when independent scenarios belong in one test method. Give
 each subtest a behavior name and a complete AAA block. Keep scenario inputs in
-the subtest instead of a table so a failure names the behavior directly. Test a
-repository through its port-visible behavior. Test a use case through
+the subtest instead of a table, so a failure identifies the behavior directly.
+Test a repository through its port-visible behavior. Test a use case through
 `Execute(ctx, input)` with real validation and migrations.
 
 For expected outcomes, assert the module's typed `errs.Err...` value. The

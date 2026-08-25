@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-A handler is a thin inbound adapter. Each method decodes one request, performs
+A handler is a narrow inbound adapter. Each method decodes one request, performs
 transport validation and mapping, executes one public use case, maps the
 result, and writes it through the established Bricks response handling.
 
@@ -46,8 +46,8 @@ direct provider call. They do not expose an application output as JSON.
 ## Context
 
 Set `ctx := r.Context()` at the start of every handler and pass `ctx` to the
-use case. Decode JSON through the request helper
-already established by Bricks or by the service. Let that helper preserve the
+use case. Decode JSON through the request helper already established by Bricks
+or by the service. Let that helper preserve the
 project's malformed-body and content-type behavior.
 
 ## Decode
@@ -105,13 +105,12 @@ Use the project's Bricks JSON response helper for bodies and its no-content
 helper for empty successful responses. Keep headers, envelopes, and error
 shapes consistent with the server-wide response contract.
 
-## Anti-patterns
+## Keep handlers narrow
 
-Do not inject concrete use-case implementations into a handler. Do not skip
-logging before error rendering. Do not write a raw response in place of the
-shared response helper. Do not hide policy or persistence work in a handler
-helper. Keep comments for non-obvious transport choices; method-body narration
-adds no value.
+Inject decorated public use-case contracts into handlers. Log errors before
+rendering them, and write responses through the shared response helper. Keep
+policy and persistence work in the use case or adapter. Reserve comments for
+non-obvious transport choices; method-body narration adds no value.
 
 ## Examples
 

@@ -15,7 +15,7 @@ Name the histogram `project_use_case_duration_seconds` and the counter
 `project_use_case_outcomes_total`. Give both the `module`, `operation`, and
 `outcome` labels. Use stable operation names such as `order_confirm`; use
 `success` and `error` for the generic outcomes. Add a domain metric only when
-it answers an operational question that duration and outcome cannot answer.
+it answers an operational question that duration and outcome leave unanswered.
 
 ```go
 package metrics
@@ -71,8 +71,8 @@ func (m *PrometheusUseCaseMetrics) Observe(
 ```
 
 Keep the adapter file order as concrete type, interface assertion, pointer
-constructor, then methods. Registration returns its technical error from the
-constructor. Fx propagates it to the process boundary, which logs it. Metrics
+constructor, then methods. The constructor returns registration errors. Fx
+propagates them to the process boundary for logging. Metrics
 have no module error or locale entry.
 
 ## Wire one observer and decorate once
@@ -154,8 +154,8 @@ func (d *UseCaseMetricsDecorator[I, O]) Execute(
 
 Use the module's existing `provideDecoratedUseCases` path to install this
 decorator. Do not add a second direct metric call to a use case, handler,
-repository, or provider. A domain span or domain-specific metric still has a
-single responsible owner.
+repository, or provider. Keep one owner for each domain span or domain-specific
+metric.
 
 ## Test registration and outcomes
 

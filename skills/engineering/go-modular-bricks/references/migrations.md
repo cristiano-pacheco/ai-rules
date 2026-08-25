@@ -5,10 +5,10 @@
 Create an ordered up migration and its reversible down migration in the
 project's migration location. When the project has no established location,
 use `migrations/<sequence>_<verb>_<noun>.up.sql` and
-`migrations/<sequence>_<verb>_<noun>.down.sql`. Keep a module's schema change
-with that module's migration contribution when the runner supports module file
-systems. Do not edit an older applied migration.
-Create a new ordered migration for every deployed schema change instead.
+`migrations/<sequence>_<verb>_<noun>.down.sql`. When the runner supports module
+file systems, keep a module's schema change with that module's migration
+contribution. Preserve applied migrations. Create a new ordered migration for
+every deployed schema change.
 
 For a new invoice table, write the schema first:
 
@@ -34,11 +34,11 @@ The down migration reverses only this migration:
 DROP TABLE invoices;
 ```
 
-Add the model after the SQL is complete. Its table, column order, nullability,
-indexes, and defaults must match the up migration. Write explicit data
-backfills for a non-null column added to populated data: add a nullable column,
-backfill it, then make it non-null in a later safe migration if the deployment
-requires that split.
+Add the model after completing the SQL. Its table, column order, nullability,
+indexes, and defaults must match the up migration. When adding a non-null column
+to populated data, write an explicit backfill. Add the column as nullable,
+backfill it, then make it non-null in a later migration if deployment safety
+requires the split.
 
 ## Recipe: register module migrations
 

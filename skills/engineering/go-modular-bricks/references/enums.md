@@ -3,8 +3,8 @@
 ## Recipe: create a constrained string value
 
 Use an enum when a module accepts one of a closed set of strings. Create
-`internal/modules/<module>/enum/<snake_case_name>_enum.go`. Before writing the
-file, list every accepted literal and add `ErrInvalid<EnumName>` with
+`internal/modules/<module>/enum/<snake_case_name>_enum.go`. Before writing it,
+list every accepted literal and add `ErrInvalid<EnumName>` with
 `http.StatusBadRequest` to the module `errs` package. Add that code to every
 existing locale file.
 
@@ -84,6 +84,6 @@ func TestNewShipmentModeEnum(t *testing.T) {
 }
 ```
 
-Test every accepted constant and at least one rejected literal. The final check
-is mechanical: each constant appears once in the set, invalid input returns the
-typed module error, and the locale contains that error code.
+Test every accepted constant and at least one rejected literal. Then verify
+that each constant appears once in the set, invalid input returns the typed
+module error, and every locale contains that error code.

@@ -8,9 +8,8 @@ caching optional. Put the consumer-owned port at
 `internal/modules/<module>/ports/<name>_cache.go` and the adapter at
 `internal/modules/<module>/cache/<name>_cache.go`.
 
-Choose a boolean port for presence, flags, and rate limits. Choose a typed
-value port for structured state. TTL stays inside the adapter and never appears
-in the port.
+Use a boolean port for presence, flags, and rate limits. Use a typed-value port
+for structured state. Keep TTL inside the adapter and out of the port.
 
 ```go
 package ports
@@ -112,10 +111,10 @@ func (c *SessionStateCache) Get(ctx context.Context, key string) (dto.SessionSta
 }
 ```
 
-Use a fixed TTL for independently written, short-lived values. For a large
-batch of long-lived values, calculate an inclusive random TTL between defined
-minimum and maximum bounds to spread expiry. Do not pass TTL through a use case
-or port method.
+Use a fixed TTL for independently written, short-lived values. For large
+batches of long-lived values, choose an inclusive random TTL between defined
+minimum and maximum bounds to spread expirations. Do not pass TTL through a use
+case or port method.
 
 ```go
 func (c *SessionCache) calculateTTL() time.Duration {
@@ -134,5 +133,5 @@ fx.Provide(
 ```
 
 Test every behavior the port exposes, plus key construction, serialization
-failures, and TTL selection when the adapter uses them. Use controlled Redis
-for an integration flow that relies on cache semantics.
+failures, and TTL selection when the adapter uses them. Use a controlled Redis
+instance for an integration flow that relies on cache semantics.

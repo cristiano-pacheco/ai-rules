@@ -6,21 +6,20 @@ alone does not require a documentation update.
 
 ## Recipe: document an opted-in operation
 
-Use the project's existing OpenAPI or Swagger generator and conventions. Put
-annotations immediately above the handler only when that is the generator's
-local convention. For each documented operation, state its summary,
-description, plural tag, accepted and produced media types, exact versioned
-path and method, every path or query parameter, request DTO, success status and
-response DTO, each expected error status, and the required security scheme.
+Follow the project's existing OpenAPI or Swagger generator and conventions.
+When local convention requires annotations above the handler, put them there.
+For each documented operation, state its summary, description, plural tag,
+accepted and produced media types, exact versioned path and method, every path
+or query parameter, request DTO, success status and response DTO, each expected
+error status, and required security scheme.
 
 Use `brickserrs.Error` for every documented error response. Add
 `@Security BearerAuth` only when the route requires that named scheme. A
 no-content success has only its status and description, not a response schema.
 
-Document transport DTOs and the shared error shape. Do not publish application
-outputs, persistence models, provider types, internal errors, or implementation
-details. Keep annotations next to the handler only when that is the local
-generator's convention.
+Document transport DTOs and the shared error shape. Keep application outputs,
+persistence models, provider types, internal errors, and implementation details
+out of the published contract.
 
 Regenerate checked-in documentation only when the project uses generated
 artifacts and the change affects them. Run the project's configured generator,

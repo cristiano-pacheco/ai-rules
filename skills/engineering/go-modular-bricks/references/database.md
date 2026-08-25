@@ -7,8 +7,8 @@ models, repositories, or business errors. Keep database configuration in the
 shared configuration bootstrap, then inject the resulting shared database into
 module repositories through their constructors.
 
-Use the project's configured GORM driver and its wrapper name. The following
-PostgreSQL shape is complete when the project uses `config.DatabaseConfig` with
+Use the project's configured GORM driver and wrapper name. The following
+PostgreSQL shape applies when the project uses `config.DatabaseConfig` with
 `DSN` and the standard GORM driver:
 
 ```go
@@ -133,9 +133,9 @@ func NewProjectWriteDB(
 }
 ```
 
-Register both constructors from the shared composition root. Do not provide
-`NewProjectDB` as well: Fx would expose three database choices and conceal the
-selected topology.
+Register both constructors from the shared composition root. Omit
+`NewProjectDB`; providing all three constructors makes the selected database
+topology ambiguous.
 
 ```go
 var Shared = fx.Module(
@@ -156,10 +156,12 @@ read-after-write path stays on the write wrapper.
 ## Check before finishing
 
 - Only shared technical code owns the driver, connection pool, and lifecycle hook.
-- The concrete wrapper constructor returns a pointer and reports setup errors with context.
+- The concrete wrapper constructor returns a pointer and reports setup errors
+  with context.
 - Module repositories receive `ProjectDB` by default, or the selected read and
   write wrappers, and pass caller context to every query.
 - A read/write deployment gives every repository an explicit read or write
   wrapper for each query, and gives transactions and migrations the write
   wrapper.
-- Controlled integration tests create an isolated database, apply migrations, and close it with their test lifecycle.
+- Controlled integration tests create an isolated database, apply migrations,
+  and close it through the test lifecycle.

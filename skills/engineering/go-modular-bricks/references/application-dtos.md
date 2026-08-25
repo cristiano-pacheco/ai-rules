@@ -2,10 +2,10 @@
 
 ## Decide the owner before creating a type
 
-Use an operation contract when a value enters or leaves one use case. Create it
-in `internal/modules/<module>/usecase/<noun>_<action>_usecase.go`, beside the
-use case that owns it. Use a module `dto/` type only when a service, cache, or
-two application collaborators need the same non-operation value.
+Use an operation contract for every value that enters or leaves one use case.
+Define it in `internal/modules/<module>/usecase/<noun>_<action>_usecase.go`,
+beside the owning use case. Use a module `dto/` type only when a service, cache,
+or at least two application collaborators need the same non-operation value.
 
 Keep transport requests and responses in the HTTP `dto/` package. Keep GORM
 records in `model/`. Neither crosses into an operation contract. Map at the
@@ -70,9 +70,9 @@ type SendEmailConfirmationService interface {
 }
 ```
 
-Do not create a catch-all `dto` package. An operation's input and output stay
-with that operation even if a service later has similar fields. Extract only a
-business-shaped value with an owner and real reuse.
+Keep an operation's input and output with that operation, even if a service
+later has similar fields. Extract a business-shaped value only when it has a
+clear owner and real reuse. A catch-all `dto` package has neither.
 
 ## Collection contracts
 
