@@ -3,16 +3,16 @@
 An architecture exception is a deliberate departure from a selected modular
 contract. Record it in an ADR before implementing the departure.
 
-Place the ADR in the repository's established ADR location. State the context,
-the contract that cannot be followed, the decision, alternatives considered,
-the affected modules and dependencies, the owner, and a removal condition or
-review date.
+Place the ADR in `docs/adrs`. It applies only when its content explicitly
+justifies the violated contract for the current context. Follow the exception
+as narrowly as the document describes it.
 
-Keep the exception narrow. The affected code must follow the ADR exactly. In
-the impact map, cite the ADR beside every changed boundary it authorizes.
-
-Treat an undocumented deviation as a contract violation. Restore the selected
-flow or obtain ADR approval before completing the change.
+Search `docs/adrs` when the requested change or a comparable local flow
+violates an invariant. Read a candidate ADR in full before relying on it and
+cite it with the affected boundary. Treat a deviation without an applicable
+ADR as a contract violation. Keep the changed flow compliant and report an
+existing violation. If the requested change cannot comply, stop and ask before
+creating an ADR or implementing the exception.
 
 ## Examples
 

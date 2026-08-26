@@ -26,7 +26,7 @@ Reusable skills and reference material for AI-assisted engineering work.
 | `ai-to-tickets` | Splitting a plan or spec into dependent tickets |
 | `commit` | Committing staged changes with a Conventional Commit message |
 | `deslop` | Removing unnecessary AI-generated complexity from a diff |
-| `go-modular-bricks` | Mapping changes in Go services that use Bricks |
+| `go-modular-bricks` | Routing REST and CLI development through Bricks contracts |
 
 Each skill defines its own trigger and instructions in its `SKILL.md`. Read that file before using or changing a skill.
 

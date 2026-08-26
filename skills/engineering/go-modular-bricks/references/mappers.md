@@ -15,17 +15,16 @@ or conversion can fail.
 package mapper
 
 import (
-	"example.com/project/internal/modules/order/dto"
-	"example.com/project/internal/modules/order/model"
+	httpdto "example.com/project/internal/modules/order/http/dto"
 	"example.com/project/internal/modules/order/usecase"
 )
 
-func ToOrderConfirmInput(request dto.ConfirmOrderRequest) usecase.OrderConfirmInput {
+func ToOrderConfirmInput(request httpdto.ConfirmOrderRequest) usecase.OrderConfirmInput {
 	return usecase.OrderConfirmInput{OrderID: request.OrderID}
 }
 
-func ToOrderResponse(order model.OrderModel) dto.OrderResponse {
-	return dto.OrderResponse{ID: order.ID, Status: order.Status}
+func ToOrderResponse(output usecase.OrderConfirmOutput) httpdto.OrderResponse {
+	return httpdto.OrderResponse{ID: output.OrderID, Status: output.Status}
 }
 ```
 
@@ -38,20 +37,20 @@ When the same item appears in a collection, add a collection mapper. Let it
 call the single-item public mapper. Keep a shared nested conversion private.
 
 ```go
-func ToOrderListResponse(orders []model.OrderModel) []dto.OrderResponse {
-	responses := make([]dto.OrderResponse, len(orders))
-	for i, order := range orders {
-		responses[i] = ToOrderResponse(order)
+func ToOrderListResponse(items []usecase.OrderListItem) []httpdto.OrderResponse {
+	responses := make([]httpdto.OrderResponse, len(items))
+	for i, item := range items {
+		responses[i] = ToOrderResponse(item)
 	}
 	return responses
 }
 
-func ToOrderResponse(order model.OrderModel) dto.OrderResponse {
-	return dto.OrderResponse{ID: order.ID, Customer: toCustomerResponse(order)}
+func ToOrderResponse(item usecase.OrderListItem) httpdto.OrderResponse {
+	return httpdto.OrderResponse{ID: item.ID, Customer: toCustomerResponse(item.Customer)}
 }
 
-func toCustomerResponse(order model.OrderModel) dto.CustomerResponse {
-	return dto.CustomerResponse{ID: order.CustomerID, Name: order.CustomerName}
+func toCustomerResponse(customer usecase.OrderCustomer) httpdto.CustomerResponse {
+	return httpdto.CustomerResponse{ID: customer.ID, Name: customer.Name}
 }
 ```
 
@@ -64,12 +63,12 @@ Return a typed module error only when the conversion itself can fail, such as a
 parse. Keep the underlying parsing detail out of the application contract.
 
 ```go
-func ToProductModel(request dto.CreateProductRequest) (model.ProductModel, error) {
+func ToProductCreateInput(request httpdto.CreateProductRequest) (usecase.ProductCreateInput, error) {
 	price, err := parsePrice(request.Price)
 	if err != nil {
-		return model.ProductModel{}, errs.ErrInvalidPrice
+		return usecase.ProductCreateInput{}, errs.ErrInvalidPrice
 	}
-	return model.ProductModel{Name: request.Name, Price: price}, nil
+	return usecase.ProductCreateInput{Name: request.Name, Price: price}, nil
 }
 ```
 
@@ -84,3 +83,4 @@ then map its result.
 - Every function has one output, with optional `error` as the second result.
 - Collection functions call the single-item mapper.
 - The file has no state, side effect, context, or infrastructure dependency.
+- An HTTP mapper converts only HTTP DTOs and use-case contracts; no GORM model crosses that boundary.

@@ -52,6 +52,30 @@ of models. Use Go pointers instead of `database/sql` nullable values. Keep
 fields in migration order. Change deployed tables and columns only through
 migrations.
 
+## Multi-table views
+
+A repository read that projects columns from multiple tables may return a
+value view declared in `model`, named `<Purpose>View`. A view contains only the
+selected persistence fields and any GORM column tags required by the query. It
+has no JSON tags or application policy and is not a GORM table model.
+
+```go
+type InvoiceCustomerView struct {
+	InvoiceID     uint64
+	InvoiceNumber string
+	CustomerName  string
+}
+```
+
+Return `InvoiceCustomerView` or `[]InvoiceCustomerView` by value from the
+repository port. Keep a one-table read on its table model instead of creating a
+view merely to rename fields.
+
+A complex repository query may receive a value persistence criterion declared
+in `model`, named `<Purpose>Criteria`. Keep column selection, GORM clauses, and
+SQL fragments inside the adapter. Use primitive method arguments when they
+remain readable instead of introducing a criterion for a small fixed query.
+
 ## Examples
 
 Use a pointer for an optional field:
@@ -77,5 +101,7 @@ type InvoiceLabelModel struct {
 
 - The migration exists first and the model belongs to its owning module.
 - The table name, columns, nullability, tags, indexes, and defaults match the migration.
-- Every exported model and `TableName` method has a useful comment.
-- No model leaks into a use-case contract or an HTTP response.
+- Every exported model, view, and `TableName` method has a useful comment.
+- A multi-table projection uses a value view in `model`; ordinary reads use table models.
+- Complex query criteria live in `model` and contain no transport or application contract.
+- No model or view leaks into a use-case contract or an HTTP response.

@@ -8,7 +8,7 @@ Keep domain behavior with the module that owns the business capability.
 Repositories and module policy belong with their module. Replace catch-all
 helper packages with code under a clear owner.
 
-Place a capability in `shared` only when the impact map shows that several
+Place a capability in `shared` only when the selected flow shows that several
 modules need the same technical mechanism and no module owns its business
 meaning. Keep its API technical, narrow, and independent of a module's domain
 types.

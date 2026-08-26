@@ -74,8 +74,9 @@ query string, path value, HTTP request, response DTO, or GORM model.
 
 Map accepted query values to a dedicated list input. Map collection items and
 promised metadata to a response DTO. Reject malformed query syntax
-before calling the use case. The repository receives only the application
-values it needs, never `url.Values` or a transport pagination type.
+before calling the use case. The use case maps that input to primitive query
+values or model-owned persistence criteria. The repository never receives
+`url.Values`, a transport pagination type, or the application input.
 
 ```go
 type ProductListResponse struct {
@@ -93,6 +94,6 @@ type ProductListResponse struct {
 - Decoding, external syntax checks, and mapping happen in the inbound adapter.
 - Inputs and outputs remain application-owned types; models and provider values
   do not cross the HTTP boundary.
-- Unit-test reused mappers. Test HTTP decoding, malformed transport input,
-  response mapping, status, and rendered error behavior when the handler
-  changes.
+- Unit-test reused pure mappers when their behavior warrants focused proof.
+- When the project has a composed HTTP test setup, cover changed decoding,
+  mapping, status, serialization, and error behavior through that boundary.

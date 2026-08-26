@@ -84,5 +84,5 @@ handler when registering a route.
 - A route group names and scopes its middleware beside the registrations it
   affects.
 - `fx.go` exposes the router once as `chi.Route` with `group:"routes"`.
-- A changed route has handler coverage for its success and error boundary; add
-  an integration test when the route changes the composed HTTP flow.
+- When the project has a composed HTTP test setup, a changed route extends it
+  for the affected method, path, status, serialization, and error boundary.

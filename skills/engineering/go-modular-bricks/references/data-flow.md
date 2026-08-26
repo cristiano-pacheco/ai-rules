@@ -1,78 +1,122 @@
 # Data flow
 
-## Recipe: map one behavior through its owner
+This contract defines the dependency and representation invariants for every
+REST and CLI flow. A local convention may change naming or mechanics. It may
+change an invariant only when an applicable ADR in `docs/adrs` explicitly
+justifies the violation for that context.
 
-Trace each business behavior as one visible path. Before editing, record its
-owner and every representation it crosses:
+## REST flow
 
 ```text
-entry point -> input mapping -> use case -> consumer-owned port -> adapter -> infrastructure
-entry point <- output mapping <- use-case output or typed error
+HTTP request -> HTTP DTO -> Handler -> decorated use case -> Port -> Adapter -> Infrastructure
+                              |
+HTTP response <- response DTO <-+--- use-case output or typed error
 ```
 
-The inbound adapter lives under its owner module. An HTTP adapter uses
-`internal/modules/<module>/http/chi/handler/`; a command uses `cmd/`; an
-application operation uses `internal/modules/<module>/usecase/`; and an
-outbound contract lives in `internal/modules/<module>/ports/`. The concrete
-adapter stays beside its mechanism, such as `repository/`, `client/`,
-`provider/`, `service/`, or `cache/`. The module's `fx.go` is the only place
-that joins a concrete adapter to a port or exposes an inbound contribution.
+The handler parses transport values, maps them to an explicit use-case input,
+executes exactly one decorated use case, maps its output, and writes the HTTP
+response through the project's established Bricks response path.
 
-An entry point receives transport, command, or event input. It validates syntax
-that belongs to that boundary, maps it to an explicit application input, calls
-one public decorated use case with the caller context, maps the output, and
-returns through its local response mechanism. The entry point logs every
-returned error before its established renderer or command boundary handles it.
+## Business CLI flow
 
-The use case owns application policy. It decides validation timing,
-authorization, state transitions, idempotency, transaction scope, and the
-sequence of port calls. Its public input and output are application contracts.
-
-A port states only what the use case needs. Its adapter performs I/O and maps
-between application values and infrastructure values. A stateful adapter has a
-concrete type, an interface assertion immediately below it, and a named-field,
-pointer-returning constructor. Each I/O method receives caller
-`context.Context` first, starts one `Type.Method` span, defers `span.End()`,
-and logs an error before returning it when the local adapter convention owns
-logging.
-
-Map every representation at its boundary. Transport DTOs, application inputs
-and outputs, persistence models, provider values, and internal data contracts
-may share fields but retain separate ownership and types.
-
-Expected business outcomes cross the boundary as stable module errors in
-`internal/modules/<module>/errs/errs.go`. Allocate the next module code, use a
-lowercase internal message and matching HTTP status, then add the code to every
-existing module locale. Technical failures retain their identity until the
-established entry-point error path renders them safely.
-
-This path keeps business policy in the use case and technical work in adapters.
-Prove a pure deterministic boundary with a neighboring unit test. Prove a
-changed use case or persistence flow with an integration test backed by real,
-controlled infrastructure. The test calls the same public boundary the
-entry point calls and asserts its output, typed errors, persisted state, and
-side effects.
-
-## Examples
-
-### Good
-
-```go
-input := usecase.CreateProductInput{Name: createRequest.Name}
-output, err := h.createProduct.Execute(r.Context(), input)
-if err != nil {
-	return dto.ProductResponse{}, err
-}
-
-return dto.ProductResponse{ID: output.ID, Name: output.Name}, nil
+```text
+Cobra command -> flag and argument mapping -> decorated use case -> Port -> Adapter -> Infrastructure
+       |
+       +--- command output or error <- use-case output or typed error
 ```
 
-### Bad
+A business command maps its boundary values to one use-case input and executes
+exactly one decorated use case. It does not reproduce application policy.
 
-```go
-product := model.ProductModel{Name: createRequest.Name}
-if err := h.db.Create(&product).Error; err != nil {
-	return dto.ProductResponse{}, err
-}
-return dto.ProductResponse{ID: product.ID, Name: product.Name}, nil
+## Persistence flow
+
+```text
+Use case
+    |
+    v
+Repository port
+    |
+    v
+Repository adapter
+    |
+    +-> create/update/delete input:  model.X value
+    +-> create/update/delete output: model.X value
+    +-> read output: model.X, []model.X, or model.XView values
+    |
+    v
+GORM -> Database
 ```
+
+A repository read receives identifiers, primitives, or persistence criteria.
+It returns module-owned GORM models by value. Scalar metadata such as a total
+may accompany a collection. A projection over multiple tables may return a
+value view declared in `model`, such as `model.OrderItemView`. Creates, updates,
+and deletes receive and return module-owned GORM models by value. Repository
+port signatures contain no pointers to models and no HTTP or application DTOs.
+An implementation may pass pointers internally when the GORM API requires them.
+
+## Infrastructure CLI flow
+
+```text
+server command    -> Fx application lifecycle
+migration command -> Fx migration runner
+
+No use case participates in either flow.
+```
+
+Server and migration commands are infrastructure entry points. They compose
+and run infrastructure instead of invoking application policy.
+
+## Dependency invariants
+
+| Source | May call or depend on | Boundary rule |
+| --- | --- | --- |
+| HTTP handler | Exactly one decorated use case | No repository, cache, client, provider, concrete adapter, or database |
+| Business CLI | Exactly one decorated use case | No repository, cache, client, provider, concrete adapter, or database |
+| Use case | Consumer-owned ports and another module's public use-case API | No HTTP DTO, command type, concrete adapter, or another module's internals |
+| `ports` package | Interface declarations using module-owned contract types | No structs, DTO declarations, implementations, mappers, or concrete adapter state |
+| Repository port | Repository interface using model values, primitives, and persistence criteria | No HTTP DTO, application DTO, provider type, or model pointer; `*gorm.DB` is allowed only by the explicit transaction contract |
+| Repository adapter | Its port, module models, errors, and database mechanism | No HTTP or application DTO and no other module's internals |
+| Other outbound adapter | Its consumer-owned port and technical mechanism | No inbound transport type or application policy |
+| HTTP mapper | HTTP DTO and use-case contracts | No repository, provider representation, or GORM model crossing the HTTP boundary |
+| Module `fx.go` | Concrete constructors and their contracts | It is the only module location that binds implementations to ports and publishes runtime contributions |
+
+These calls always violate the flow unless an applicable ADR authorizes the
+specific context:
+
+```text
+Handler      -X-> Repository, cache, client, provider, or database
+Business CLI -X-> Repository, cache, client, provider, or database
+Use case     -X-> Concrete adapter
+Repository   -X-> HTTP DTO or application DTO
+HTTP or CLI  -X-> GORM model
+```
+
+A use case may use models owned by its module as internal persistence values.
+Its public input and output remain application contracts and contain no GORM
+models. Calls into another module use only that module's public use-case API.
+
+## Representation boundaries
+
+Map each representation where ownership changes:
+
+```text
+transport DTO <-> use-case input/output <-> port values <-> adapter values
+```
+
+Transport DTOs belong to HTTP. Use-case inputs and outputs belong to one
+operation. Shared application DTOs may appear in non-repository port signatures
+but are declared in the module's `dto` package. GORM models and persistence
+views belong to `model`. Provider and client payloads stay inside their
+adapters.
+
+Expected business outcomes cross boundaries as stable module errors. Technical
+failures retain their identity until the established entry-point error path
+renders or reports them.
+
+## Project conventions
+
+Inspect the closest comparable flow for package names, constructors, logging,
+mapping helpers, response helpers, Fx decoration, and test setup. Follow that
+precedent when it does not conflict with an invariant. Logger injection in a
+use case is allowed but not required; preserve the project's local convention.

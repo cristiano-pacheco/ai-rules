@@ -2,9 +2,9 @@
 
 ## Recipe: add cache only to a flow that uses it
 
-Create a cache after the impact map identifies cached state. Do not create an
-empty `cache/` package, a no-op implementation, or an Fx binding merely to make
-caching optional. Put the consumer-owned port at
+Create a cache after the selected flow identifies cached state. Do not create
+an empty `cache/` package, a no-op implementation, or an Fx binding merely to
+make caching optional. Put the consumer-owned port at
 `internal/modules/<module>/ports/<name>_cache.go` and the adapter at
 `internal/modules/<module>/cache/<name>_cache.go`.
 

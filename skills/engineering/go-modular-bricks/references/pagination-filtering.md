@@ -2,8 +2,9 @@
 
 Use this contract for collection endpoints that accept page controls, ordering,
 or filters. Give the application operation a dedicated collection input and
-output. The HTTP layer parses query parameters into that input; the
-repository receives only the application contract it needs.
+output. The HTTP layer parses query parameters into that input. The use case
+maps it to primitive repository arguments or model-owned persistence criteria;
+the repository does not receive the application input.
 
 ## Query contract
 

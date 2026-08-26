@@ -5,8 +5,10 @@
 Create the consumer-owned port at
 `internal/modules/<module>/ports/<entity>_repository.go` and the GORM adapter
 at `internal/modules/<module>/repository/<entity>_repository.go`. The port
-uses module models or application DTOs, never `*gorm.DB`. Its comment states
-the persistence responsibility and any absence rule.
+uses module model values, primitive query values, or persistence criteria. It
+never uses HTTP or application DTOs. Model inputs and outputs are values, not
+pointers. `*gorm.DB` appears only in the explicit transaction contract. The
+interface comment states the persistence responsibility and any absence rule.
 
 ```go
 package ports
@@ -23,7 +25,7 @@ type InvoiceRepository interface {
 	FindByID(ctx context.Context, id uint64) (model.InvoiceModel, error)
 	Create(ctx context.Context, invoice model.InvoiceModel) (model.InvoiceModel, error)
 	Update(ctx context.Context, invoice model.InvoiceModel) (model.InvoiceModel, error)
-	Delete(ctx context.Context, id uint64) error
+	Delete(ctx context.Context, invoice model.InvoiceModel) (model.InvoiceModel, error)
 }
 ```
 
@@ -38,7 +40,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"time"
 
 	brickserrs "example.com/project/pkg/errs"
 	"example.com/project/pkg/otel/trace"
@@ -76,6 +77,13 @@ func (r *InvoiceRepository) FindByID(ctx context.Context, id uint64) (model.Invo
 	return invoice, nil
 }
 ```
+
+A read over one table returns `model.X` or `[]model.X` by value. Scalar
+metadata such as a collection total may accompany those values. A projection
+over multiple tables may return a value view declared in `model`, such as
+`model.InvoiceSummaryView`. The view is a persistence representation, not an
+application DTO. Absence is an error contract rather than a nil model. Creates,
+updates, and deletes receive and return model values.
 
 Bind it in the owner module's `fx.go`:
 
@@ -192,18 +200,23 @@ func (r *InvoiceRepository) Create(ctx context.Context, invoice model.InvoiceMod
 	return invoice, nil
 }
 
-func (r *InvoiceRepository) Delete(ctx context.Context, id uint64) error {
+func (r *InvoiceRepository) Delete(
+	ctx context.Context,
+	invoice model.InvoiceModel,
+) (model.InvoiceModel, error) {
 	ctx, span := trace.Span(ctx, "InvoiceRepository.Delete")
 	defer span.End()
 
-	rows, err := gorm.G[model.InvoiceModel](r.DB).Where("id = ?", id).Delete(ctx)
+	rows, err := gorm.G[model.InvoiceModel](r.DB).
+		Where("id = ?", invoice.ID).
+		Delete(ctx)
 	if err != nil {
-		return err
+		return model.InvoiceModel{}, err
 	}
 	if rows == 0 {
-		return brickserrs.ErrRecordNotFound
+		return model.InvoiceModel{}, brickserrs.ErrRecordNotFound
 	}
-	return nil
+	return invoice, nil
 }
 ```
 
@@ -294,21 +307,9 @@ func (r *InvoiceRepository) Update(
 }
 ```
 
-A single-field update may use `Update` directly. For a targeted delete, zero
-affected rows means not found. A cleanup that deletes expired rows returns its
-driver error and treats zero rows as success.
-
-```go
-func (r *InvoiceRepository) DeleteExpired(ctx context.Context) error {
-	ctx, span := trace.Span(ctx, "InvoiceRepository.DeleteExpired")
-	defer span.End()
-
-	_, err := gorm.G[model.InvoiceModel](r.DB).
-		Where("expires_at < ?", time.Now().UTC()).
-		Delete(ctx)
-	return err
-}
-```
+A single-field update may use `Update` directly. A delete receives the selected
+model by value and returns that value after deletion. Zero affected rows means
+not found.
 
 ## Translate known outcomes
 
@@ -361,7 +362,7 @@ type InvoiceRepository interface {
 	CreateTX(ctx context.Context, tx *gorm.DB, invoice model.InvoiceModel) (model.InvoiceModel, error)
 	Update(ctx context.Context, invoice model.InvoiceModel) (model.InvoiceModel, error)
 	UpdateTX(ctx context.Context, tx *gorm.DB, invoice model.InvoiceModel) (model.InvoiceModel, error)
-	Delete(ctx context.Context, id uint64) error
+	Delete(ctx context.Context, invoice model.InvoiceModel) (model.InvoiceModel, error)
 }
 ```
 
@@ -485,6 +486,9 @@ test harness can induce one.
 ## Check before finishing
 
 - The use case receives the port, never the concrete repository or GORM database.
+- Repository signatures contain no HTTP or application DTO and no model pointer.
+- Reads return model values or model-owned multi-table views, with scalar metadata only when needed.
+- Creates, updates, and deletes receive and return model values.
 - Every method uses caller context and one span named `Type.Method`.
 - Single-record reads limit before first; targeted mutations check affected rows.
 - A bulk cleanup may delete zero rows without error.

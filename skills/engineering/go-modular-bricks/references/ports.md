@@ -7,6 +7,11 @@ needs a replaceable collaborator that performs I/O or represents another
 boundary. The consumer owns the interface. Name the file after its role, such as
 `order_repository.go`, `token_issuer_service.go`, or `session_cache.go`.
 
+The `ports` package contains interface declarations only. Declare DTOs in the
+module's `dto` package, models and persistence views in `model`, and every
+implementation beside its technical mechanism. A port may reference those
+module-owned types without declaring them locally.
+
 Document each exported interface. State its business purpose, absence behavior,
 and any consistency rule not clear from the method names. Leave boilerplate
 comments off the implementation.
@@ -28,11 +33,13 @@ type OrderRepository interface {
 }
 ```
 
-Use module-owned models and DTOs in signatures. Do not expose an HTTP request,
-a provider SDK type, a Redis client, adapter configuration, or another module's
-internal package. Put `context.Context` first whenever the method does I/O.
-`TransactionProvider` and repository `*TX` methods are the GORM exception:
-they receive or return `*gorm.DB` only to run one explicit transaction.
+A non-repository port may reference module-owned application DTOs. A repository
+port uses model values, primitive query values, or persistence criteria and
+never an HTTP or application DTO. No port exposes an HTTP request, provider SDK
+type, Redis client, adapter configuration, or another module's internal
+package. Put `context.Context` first whenever the method does I/O.
+`TransactionProvider` and repository `*TX` methods are the only GORM exception:
+they receive or return `*gorm.DB` to run one explicit transaction.
 
 ## Match the port to its implementation category
 
@@ -85,8 +92,9 @@ or pure service until a collaborator boundary appears.
 ## Check before finishing
 
 - The port is in the consuming module and describes only what that policy needs.
-- Its signature contains application-owned values and context for I/O, except
-  the explicit `*gorm.DB` transaction contract.
+- The `ports` package contains interfaces only; contract types and implementations live elsewhere.
+- A repository port contains model values and persistence criteria, never DTOs or model pointers.
+- Other port signatures contain module-owned values and context for I/O, except the explicit `*gorm.DB` transaction contract.
 - The interface comment explains non-obvious behavior.
 - The adapter has a compile-time assertion and pointer-returning constructor.
 - Fx binds the concrete type with `fx.As(new(ports.Xxx))`.

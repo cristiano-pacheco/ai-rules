@@ -59,8 +59,8 @@ through the same composition root and inject it into the router with an
 explicit name or group.
 
 Keep bindings close to their constructors. If the selected modules and shared
-infrastructure cannot build a dependency, update the impact map rather than
-adding a hidden global.
+infrastructure cannot build a dependency, revisit the selected flow contracts
+rather than adding a hidden global.
 
 ## Examples
 

@@ -20,6 +20,8 @@ private methods. Define both input and output even when one is empty. Their
 fields are explicit, self-contained application values with no JSON tags and no
 HTTP DTO, GORM model, SDK type, or shared use-case DTO.
 
+This example follows a project that injects a logger into its use cases:
+
 ```go
 package usecase
 
@@ -61,8 +63,11 @@ func NewOrderConfirmUseCase(
 }
 ```
 
-Inject ports rather than concrete adapter types. The constructor returns a
-pointer and initializes every dependency by name.
+Inject ports rather than concrete adapter types. A use case may use models from
+its own module as internal persistence values, but its public input and output
+contain no models. The constructor returns a pointer and initializes every
+dependency by name. Logger injection is allowed when it matches the module's
+existing use-case convention; it is not required by this contract.
 
 ## Recipe: write `Execute`
 
@@ -89,7 +94,8 @@ func (uc *OrderConfirmUseCase) Execute(
 		return OrderConfirmOutput{}, errs.ErrOrderAlreadyConfirmed
 	}
 
-	confirmed, err := uc.orderRepository.Confirm(ctx, order.ID)
+	order.Status = model.OrderStatusConfirmed
+	confirmed, err := uc.orderRepository.Update(ctx, order)
 	if err != nil {
 		uc.logger.Error("order confirmation failed", logger.Error(err))
 		return OrderConfirmOutput{}, err
@@ -98,11 +104,13 @@ func (uc *OrderConfirmUseCase) Execute(
 }
 ```
 
-Log every collaborator and validation error immediately before returning it:
-`uc.logger.Error("message", logger.Error(err))`. For a lookup where absence is
-an expected branch, distinguish it from an unexpected lookup failure with
-`errors.Is`; return a typed module error for the expected business condition.
-Never return `errors.New(...)` for that condition.
+Follow the module's existing logging convention. When its use cases inject a
+logger, log at the same failure boundaries and with the same message style.
+When its decorator or entry point owns error logging, return the error without
+adding a second convention. For a lookup where absence is an expected branch,
+distinguish it from an unexpected lookup failure with `errors.Is`; return a
+typed module error for the expected business condition. Never return
+`errors.New(...)` for that condition.
 
 Do not create generic execution tracing or metrics inside `Execute`. The
 decorated use-case boundary owns that shared observability. Emit a trace or
@@ -127,8 +135,8 @@ if err != nil {
 }
 ```
 
-If the public boundary cannot express the interaction, stop and record an
-architecture exception before coupling to an internal package.
+If the public boundary cannot express the interaction, stop and ask before
+creating an ADR or coupling to an internal package.
 
 ## Wire the decorated use case
 
@@ -160,10 +168,10 @@ constructor to its `fx.Provide` group.
 ## Check before finishing
 
 - One operation has one `Execute(ctx, input) (output, error)` contract.
-- Input validation is the first action and every returned collaborator error is
-  logged.
+- Input validation is the first action and error logging follows the module's established use-case convention.
 - Expected outcomes use typed module errors; ports are interfaces.
 - Generic execution telemetry stays in the decorated boundary; use-case
   telemetry marks only meaningful domain decisions, events, or failures.
+- Public operation contracts contain no model; internal policy uses only models owned by its module.
 - No raw errors, shared contracts, or standalone helpers were introduced.
 - Fx exposes the decorated use-case API.

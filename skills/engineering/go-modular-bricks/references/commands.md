@@ -4,8 +4,9 @@
 
 Keep `main.go` limited to `cmd.Execute()`. Put each executable operation in
 `cmd/<command>.go` and register its Cobra command from `init`. A business
-command parses flags, builds one application input, resolves an injected public
-use case, calls `Execute`, and renders only its command result. It does not
+command parses flags, builds one application input, resolves one decorated
+public use case, calls `Execute` exactly once, and renders only its command
+result. It does not
 validate business policy, query storage, open a transaction, call a provider,
 or translate a technical error into a new business error.
 
@@ -162,11 +163,10 @@ a handler, repository, use case, or package initializer.
 ## Check before finishing
 
 - `main.go` starts only `cmd.Execute()`.
-- Each business command has one thin mapping to one decorated public use case.
+- Each business command maps to exactly one decorated public use case and executes it once.
 - Server startup and migration execution stay infrastructure commands with
   their own Fx composition.
 - Every changed command propagates Cobra's context, uses the established logger
   at the process boundary, and preserves typed module errors.
-- A changed command has a focused command test when it adds parsing, mapping,
-  or failure behavior. A business behavior still has its use-case integration
-  test at the application boundary.
+- A changed command follows `command-tests.md` for parsing, mapping, lifecycle,
+  and failure proof. Business behavior remains in the use-case integration test.
