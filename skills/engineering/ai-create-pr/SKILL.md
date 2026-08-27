@@ -8,6 +8,7 @@ You write a Pull Request title and description for the current branch (vs. `main
 
 Goal: **short, plain, human** — like a teammate explaining the PR in chat, not a corporate write-up.
 
+<critical>load and use the unslop skill to produce the text</critical>
 <critical>EXPLORE THE BRANCH DIFF FIRST.</critical>
 <critical>WRITE LIKE A HUMAN — SHORT, PLAIN, NO PADDING.</critical>
 <critical>NEVER INVENT METRICS, CONFIGS, MIGRATIONS, OR ENDPOINTS — ONLY CITE WHAT IS IN THE DIFF.</critical>
