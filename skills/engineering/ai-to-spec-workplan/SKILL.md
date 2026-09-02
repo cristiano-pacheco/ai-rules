@@ -16,13 +16,19 @@ Before using `wp`, locate the installed sibling `ai-workplan/SKILL.md`. Read it,
 
    This step is complete when every named domain concept matches the glossary, every applicable ADR is accounted for, and the testing decision names the highest useful seam and its precedent.
 
-2. **Derive the identity.** Write a concise title from the settled feature. The trimmed title must be nonempty and contain no ASCII control characters. Derive an ASCII base slug from the title and repository terms: lowercase it, replace each run outside `a-z` and `0-9` with one hyphen, trim edge hyphens, and keep at most 63 bytes without leaving an edge hyphen. Use a more specific settled term if normalization produces an empty slug.
+2. **Resolve source lineage.** Set a source only when the invocation or conversation explicitly identifies a source workplan. Resolve that reference to one exact slug from `wp --json` output. Ask when the explicit reference does not resolve uniquely. The current topic, similar titles, and recent workplans are not evidence of lineage. When no source was explicit, keep the source absent.
 
-   List workplans through `wp --json workplan list`, following every cursor, because slugs are globally unique across types. Choose an unsuffixed base slug absent from the complete list. If the natural base is taken, add a meaningful settled scope term. Stop before writing if no accurate available base can be derived. Existing workplans are never updated, deleted, restored, or reused.
+   This step is complete when the source is either one exact explicitly requested slug or absent.
 
-   This step is complete when the title passes title validation and the complete visible list contains no workplan with the chosen slug.
+3. **Derive the identity.** Write a concise title from the settled feature. The trimmed title must be nonempty and contain no ASCII control characters. Derive an ASCII base slug from the title and repository terms: lowercase it, replace each run outside `a-z` and `0-9` with one hyphen, trim edge hyphens, and keep at most 63 bytes without leaving an edge hyphen. Use a more specific settled term if normalization produces an empty slug.
 
-3. **Write the exact spec.** Produce one Markdown value with these sections:
+   List workplans through `wp --json workplan list`, following every cursor, because slugs are globally unique across types. Treat every returned slug as occupied. Use the base when it is free. Otherwise, test numeric suffixes from `-2` upward and select the first free candidate. For each suffix, reserve its bytes, truncate the base to the remaining part of the 63-byte limit, and remove any trailing hyphen before joining the two. Stop before writing if the suffix leaves no nonempty accurate base.
+
+   Existing workplans are immutable inputs to selection. Never update, delete, restore, or reuse one to make a candidate available.
+
+   This step is complete when the title passes title validation and the candidate is the base or the lowest available numeric suffix in the complete visible list.
+
+4. **Write the exact spec.** Produce one Markdown value with these sections:
 
 ```markdown
 ## Problem statement
@@ -56,12 +62,14 @@ Record only relevant settled context that does not fit above.
 
    The Markdown is complete when it states the settled behavior, decisions, test seam, failure boundaries, and exclusions without placeholders or unresolved guesses. Preserve the final bytes, including line endings and trailing newlines, for publication.
 
-4. **Publish once.** Create one private temporary `.md` file and write the final Markdown to it. Run exactly one creation command, with the file as the explicit content input and without `--source`:
+5. **Publish.** Create one private temporary `.md` file and write the final Markdown to it. Use the file as the explicit content input. Include `--source` only for the source resolved in step 2:
 
 ```text
-wp --json workplan create --type spec --slug <slug> --title <title> --content <temporary-file>
+wp --json workplan create --type spec --slug <candidate> --title <title> [--source <source-slug>] --content <temporary-file>
 ```
 
-   Remove the temporary file after success or failure, before returning. Do not use stdin, an editor, or a second temporary file. Do not retry `already_exists`, `database_busy`, or any other failure in this basic publication flow.
+   On `already_exists`, mark that candidate occupied, select the next candidate by the step 3 algorithm, and retry the create with the same title, source choice, and temporary file. This is the only retry path. Do not repeat repository exploration, source resolution, listing, or drafting. On `database_busy` or any other error, stop without another tracker call.
 
-5. **Return the result.** Check `schema_version`, ignore additive unknown fields, and branch on the typed error code. On success, verify that `type` is `spec`, `slug` and `title` match, `source_workplan` is `null`, and `content_markdown` exactly matches the draft. Return the canonical created resource and the slug. On failure, return the typed code and its safe details after cleanup. Never replace a create failure with an update or content write.
+   Remove the temporary file after every outcome, before returning. Use neither stdin, an editor, nor a second temporary file. Every existing workplan stays unchanged after a collision or failure.
+
+6. **Return the result.** Check `schema_version`, ignore additive unknown fields, and branch on the typed error code. On success, verify that `type` is `spec`, `slug` is the final candidate, `title` matches, `content_markdown` exactly matches the draft, and `source_workplan` matches the explicit source or is `null` when no source was given. Return the canonical created resource and the slug. On failure, return the typed code and its safe details after cleanup. Never replace a create failure with an update or content write.
