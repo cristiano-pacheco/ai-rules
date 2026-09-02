@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Turn the settled conversation into one spec and publish it to Workplan. The invocation authorizes publication. Synthesize what is known without an interview or approval round. If required intent is missing, report the missing input instead of inventing it or creating a partial workplan.
 
-Before using `wp`, locate the installed sibling `ai-workplan/SKILL.md`. Read it, then follow its pointers to the machine-output contract and workplan command reference. They are the source of truth for envelopes, pagination, validation, typed errors, and command flags.
+Before using `wp`, load the `ai-workplan` skill. If `ai-workplan` is unavailable, stop and tell the user to install it before continuing. Follow its pointers to the machine-output contract and workplan command reference. They are the source of truth for envelopes, pagination, validation, typed errors, and command flags.
 
 ## Process
 
