@@ -25,6 +25,7 @@ Reusable skills and reference material for AI-assisted engineering work.
 | `ai-to-spec` | Turning a conversation into a tracker spec |
 | `ai-to-spec-workplan` | Publishing settled conversation as a Workplan spec |
 | `ai-to-tickets` | Splitting a plan or spec into dependent tickets |
+| `ai-to-tickets-workplan` | Publishing a stored Workplan spec as a ticket graph |
 | `commit` | Committing staged changes with a Conventional Commit message |
 | `deslop` | Removing unnecessary AI-generated complexity from a diff |
 | `go-modular-bricks` | Routing REST and CLI development through Bricks contracts |
