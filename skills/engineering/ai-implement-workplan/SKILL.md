@@ -10,6 +10,27 @@ Claim and execute one Workplan ticket. One invocation performs one implementatio
 
 Before using `wp`, load the `ai-workplan` skill. If it is unavailable, stop and tell the user to install it. Follow its pointers to the dispatch, ticket, review, and machine-output references. They define command flags, claim behavior, response envelopes, exact text storage, and typed errors. Use only `wp --json` for tracker reads and writes. Do not read the database or web UI, and do not retry `database_busy`.
 
+## Exit contract
+
+After a successful claim, classify a controlled stop by what the run needs next:
+
+| Condition | Status |
+| --- | --- |
+| Implementation, required-check, review, or commit failure | `failed` |
+| Information only a human can supply | `input_required` |
+| Human approval required to continue | `approval_required` |
+
+For each controlled stop, preserve the worktree and run these commands in order, substituting the classified status:
+
+```text
+wp --json ticket status <identifier> <status>
+wp --json ticket release <identifier>
+```
+
+Verify that the status response retains the claim and the release response has that status with a null claim. If the status write fails, leave the claim held. Report a release failure with its typed error; the successful status response remains the last known claim state. Never replace a typed `wp` failure with `failed`: return `claim_conflict` as a conflict, and stop all tracker calls on `database_busy` without retrying or releasing.
+
+A process interruption is outside this controlled contract. Let it stop at once with the current status and claim untouched. Start no cleanup, retry, recovery loop, or replacement invocation.
+
 ## Process
 
 1. **Claim one ticket.** When the invocation names a complete ticket identifier, claim it directly:
@@ -30,11 +51,11 @@ Before using `wp`, load the `ai-workplan` skill. If it is unavailable, stop and 
 
 3. **Implement the snapshot once.** Use the snapshot's identifier, title, `content_markdown`, type, project, labels, and prerequisites as the ticket context. On a fix pass, also account for every blocking Standards and Spec finding in the pinned review. Read repository instructions and the source workplan or spec when the ticket requires it. Record the repository `HEAD` and initial worktree before editing. Preserve prior implementation changes already present in a fix worktree and implement only this ticket in its linked project.
 
-   This step is complete when every acceptance criterion and, on a fix pass, every blocking finding has observable implementation evidence. The run's complete repository diff must contain no unrelated change.
+   This step is complete when every acceptance criterion and, on a fix pass, every blocking finding has observable implementation evidence. The run's complete repository diff must contain no unrelated change. Apply the exit contract if implementation needs human information or approval, or fails in a controlled way.
 
 4. **Run required checks once.** Determine the repository's mandatory checks from its instructions and build files. Run the focused checks needed during implementation, then one required-check pass over the completed diff. Use the execution snapshot and, on a fix pass, the pinned review when deciding what to verify.
 
-   This step is complete when every required check passes and its exact command and result are recorded.
+   This step is complete when every required check passes and its exact command and result are recorded. A controlled check failure follows the `failed` exit contract.
 
 5. **Open review while retaining the claim.** Set the stored status before review:
 
@@ -52,7 +73,7 @@ Before using `wp`, load the `ai-workplan` skill. If it is unavailable, stop and 
    wp --json review add <identifier> --content <temporary-file>
    ```
 
-   Remove the temporary file after the call, including on failure. Verify the returned review text is byte-for-byte equal to the captured report. A clean report has no Standards or Spec findings.
+   Remove the temporary file after the call, including on failure. Verify the returned review text is byte-for-byte equal to the captured report. A clean report has no Standards or Spec findings. A controlled review invocation or report-handling failure follows the `failed` exit contract; a failed `wp` call keeps its typed error.
 
 7. **Return blocking findings to ready.** When the persisted report has any Standards or Spec finding, keep the complete implementation diff in the worktree. Do not commit, reset, revert, clean, or stash it. Preserve this order:
 
@@ -65,7 +86,7 @@ Before using `wp`, load the `ai-workplan` skill. If it is unavailable, stop and 
 
 8. **Commit the clean change.** For either an initial or fix pass with a clean report, commit only the complete reviewed implementation diff, following the repository's commit rules. The review record is tracker data and does not belong in the repository commit. Record the resulting commit identifier.
 
-   This step is complete when the commit succeeds and contains the reviewed implementation diff.
+   This step is complete when the commit succeeds and contains the reviewed implementation diff. A controlled commit failure follows the `failed` exit contract without another commit attempt.
 
 9. **Complete, then release.** Preserve this order after the commit:
 
