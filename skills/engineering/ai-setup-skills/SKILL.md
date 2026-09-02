@@ -1,117 +1,106 @@
 ---
 name: ai-setup-skills
-description: "Configure this repo for the engineering skills: set up its issue tracker, triage label vocabulary, and domain doc layout. Run once before first use of the other engineering skills."
+description: "Configure this repo for the engineering skills: set up its issue tracker and triage label vocabulary. Run once before first use of the other engineering skills."
 disable-model-invocation: true
 ---
 
-# Setup Matt Pocock's Skills
+# Set up engineering skills
 
-Scaffold the per-repo configuration that the engineering skills assume:
+Configure the repository instructions used by the engineering skills. This is a prompt-driven setup. Inspect the repository, recommend a tracker, show the exact generated text, wait for approval, then apply it.
 
-- **Issue tracker**: where issues live (GitHub by default; local markdown is also supported out of the box)
-- **Triage labels**: the strings used for the five canonical triage roles
-- **Domain docs**: where `CONTEXT.md` and ADRs live, and the consumer rules for reading them
+Setup owns these repository outputs:
 
-This is a prompt-driven skill, not a deterministic script. Explore, present what you found, confirm with the user, then write.
+- `docs/agents/issue-tracker.md`
+- `docs/agents/triage-labels.md` when this process includes triage labels
+- one root-level `## Agent skills` section in `AGENTS.md` or `CLAUDE.md`
+
+It does not own domain documentation. Leave `CONTEXT.md`, `CONTEXT-MAP.md`, ADRs, `docs/agents/domain.md`, and every instruction outside the `## Agent skills` section unchanged.
 
 ## Process
 
-### 1. Explore
+### 1. Inspect without writing
 
-Look at the current repo to understand its starting state. Read whatever exists; don't assume:
+Resolve the repository root with `git rev-parse --show-toplevel`, then resolve that directory to its canonical physical path. Inspect:
 
-- `git remote -v` and `.git/config`: is this a GitHub repo? Which one?
-- `AGENTS.md` and `CLAUDE.md` at the repo root: does either exist? Is there already an `## Agent skills` section in either?
-- `CONTEXT.md` and `CONTEXT-MAP.md` at the repo root
-- `docs/adr/` and any `src/*/docs/adr/` directories
-- `docs/agents/`: does this skill's prior output already exist?
-- `.scratch/`: a sign that a local-markdown issue tracker convention is already in use
-- Is the `triage` skill installed? (a `triage` skill folder alongside this one, or `triage` in your available skills.) This decides whether Section B runs at all.
+- `git remote -v` and `.git/config`;
+- root `AGENTS.md` and `CLAUDE.md`;
+- the existing root `## Agent skills` section, if any;
+- `docs/agents/issue-tracker.md` and `docs/agents/triage-labels.md`;
+- `.scratch/`;
+- whether the `triage` skill is installed.
 
-### 2. Present findings and ask
+Do not inspect or infer a domain-document layout. Finish this step with the canonical repository path, the current tracker if one is configured, the instruction file to update, and whether triage setup applies.
 
-Summarise what's present and what's missing. Then take the sections in order. One section, one answer, then the next.
+### 2. Choose the tracker
 
-Lead each section with the recommended answer so the user can accept it in a word. Give a one-line explainer only when the choice genuinely branches; skip the section entirely when exploration already settled it (Section B when `triage` isn't installed, Section C when there's no monorepo).
+Summarize what exists and what setup would replace. Ask one section at a time, with the recommended answer first. An existing configured tracker is the rerun recommendation. Otherwise recommend GitHub for a GitHub remote and GitLab for a GitLab remote. Offer:
 
-**Section A: Issue tracker.**
+- **GitHub**: GitHub Issues through `gh`;
+- **GitLab**: GitLab Issues through `glab`;
+- **Local markdown**: files under `.scratch/<feature>/`;
+- **Obsidian**: files under `$OBSIDIAN_AI_VAULT/engineering/<project>/workplans/<feature>/`;
+- **Workplan**: the local tracker through `wp --json` and its Workplan skills;
+- **Other**: a workflow the user describes in one paragraph.
 
-> Explainer: The "issue tracker" is where issues live for this repo. Skills like `to-tickets`, `triage`, and `to-spec` read from and write to it. They need to know whether to call `gh issue create`, write a markdown file under `.scratch/`, or follow some other workflow you describe. Pick the place you actually track work for this repo.
+For GitHub and GitLab, keep the template's request-surface flag off without asking about it.
 
-Default posture: these skills were designed for GitHub. If a `git remote` points at GitHub, propose that. If a `git remote` points at GitLab (`gitlab.com` or a self-hosted host), propose GitLab. Otherwise (or if the user prefers), offer:
+Workplan always uses the five canonical label slugs: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. Do not ask for overrides.
 
-- **GitHub**: issues live in the repo's GitHub Issues (uses the `gh` CLI)
-- **GitLab**: issues live in the repo's GitLab Issues (uses the [`glab`](https://gitlab.com/gitlab-org/cli) CLI)
-- **Local markdown**: issues live as files under `.scratch/<feature>/` in this repo (good for solo projects or repos without a remote)
-- **Obsidian**: issues live as markdown files in the user's vault under `engineering/<project>/workplans/<feature>/` (written directly on the local filesystem via `$OBSIDIAN_AI_VAULT`)
-- **Other** (Jira, Linear, etc.): ask the user to describe the workflow in one paragraph; the skill will record it as freeform prose
-
-Record the choice in `docs/agents/issue-tracker.md`. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off**. Leave it off and don't raise it: a user who wants external PRs in the triage queue can flip the flag in the file later.
-
-**Section B: Triage label vocabulary.** Skip this section entirely if the `triage` skill isn't installed (exploration told you), since an uninstalled skill needs no labels.
-
-If it is installed, ask exactly one question:
+For every other tracker, skip label setup when `triage` is not installed. When it is installed, ask exactly:
 
 > Do you want to keep the default triage labels? (recommended: **yes**)
 
-The defaults are the five canonical roles, each label string equal to its name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. On **yes**, write them as-is. Only if the user says no, usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`), collect the overrides so `triage` applies existing labels instead of creating duplicates.
+On yes, use the five canonical strings. On no, collect the user's existing tracker labels for those roles.
 
-**Section C: Domain docs.** Default to **single-context** (one `CONTEXT.md` + `docs/adr/` at the repo root). This fits almost every repo; write it without asking.
+If both root instruction files exist, use `CLAUDE.md`. If only one exists, use it. If neither exists, ask which one to create.
 
-Offer **multi-context** (a root `CONTEXT-MAP.md` pointing to per-context `CONTEXT.md` files) only when exploration found monorepo signals. Then confirm which layout they want.
+### 3. Draft and confirm
 
-### 3. Confirm and edit
+Show the exact proposed contents of:
 
-Show the user a draft of:
+- the complete `## Agent skills` section;
+- `docs/agents/issue-tracker.md`;
+- `docs/agents/triage-labels.md` when label setup applies.
 
-- The `## Agent skills` block to add to whichever of `CLAUDE.md` / `AGENTS.md` is being edited (see step 4 for selection rules)
-- The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md` (the last only when `triage` is installed)
-
-Let them edit before writing.
-
-### 4. Write
-
-**Pick the file to edit:**
-
-- If `CLAUDE.md` exists, edit it.
-- Else if `AGENTS.md` exists, edit it.
-- If neither exists, ask the user which one to create; don't pick for them.
-
-Never create `AGENTS.md` when `CLAUDE.md` already exists (or vice versa); always edit the one that's already there.
-
-If an `## Agent skills` block already exists in the chosen file, update its contents in-place rather than appending a duplicate. Don't overwrite user edits to the surrounding sections.
-
-The block:
+The section has this shape, with only the applicable subsections:
 
 ```markdown
 ## Agent skills
 
 ### Issue tracker
 
-[one-line summary of where issues are tracked]. See `docs/agents/issue-tracker.md`.
+[one-line tracker summary]. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-[one-line summary of the label vocabulary]. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-[one-line summary of layout: "single-context" or "multi-context"]. See `docs/agents/domain.md`.
+[one-line label summary]. See `docs/agents/triage-labels.md`.
 ```
 
-Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, only when `triage` is installed and Section B ran. When it isn't, both are omitted.
+For Workplan, name `ai-workplan`, `ai-to-spec-workplan`, `ai-to-tickets-workplan`, and `ai-implement-workplan` in the tracker summary. Let the user edit the draft. Make no tracker or repository mutation before the user approves the exact text.
 
-Then write the docs files using the seed templates in this skill folder as a starting point:
+### 4. Configure the selected tracker
 
-- [issue-tracker-github.md](./issue-tracker-github.md): GitHub issue tracker
-- [issue-tracker-gitlab.md](./issue-tracker-gitlab.md): GitLab issue tracker
-- [issue-tracker-local.md](./issue-tracker-local.md): local-markdown issue tracker
-- [issue-tracker-obsidian.md](./issue-tracker-obsidian.md): Obsidian issue tracker
-- [triage-labels.md](./triage-labels.md): label mapping (only if `triage` is installed)
-- [domain.md](./domain.md): domain doc consumer rules + layout
+For Workplan, read and execute [setup-workplan.md](./setup-workplan.md). Its completion criterion is a verified canonical project and all five visible canonical label slugs. It must complete before step 5 changes any repository file.
 
-For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch using the user's description.
+For every other choice, preserve the existing adapter behavior. This setup does not create remote labels or mutate the selected tracker.
 
-### 5. Done
+### 5. Write only owned instructions
 
-Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
+Recreate `docs/agents/issue-tracker.md` from the selected adapter template. Recreate `docs/agents/triage-labels.md` when label setup applies. Use these seeds:
+
+- [issue-tracker-github.md](./issue-tracker-github.md)
+- [issue-tracker-gitlab.md](./issue-tracker-gitlab.md)
+- [issue-tracker-local.md](./issue-tracker-local.md)
+- [issue-tracker-obsidian.md](./issue-tracker-obsidian.md)
+- [issue-tracker-workplan.md](./issue-tracker-workplan.md)
+- [triage-labels.md](./triage-labels.md)
+
+Replace template placeholders with the confirmed values. For Other, write the confirmed workflow instead of using a seed.
+
+In the chosen root instruction file, replace the single `## Agent skills` section from that heading through the line before the next `##` heading, or through end of file. Append it when absent. Preserve every byte outside that section. If more than one root `## Agent skills` heading exists, stop and ask which duplicate the user wants repaired before writing.
+
+Do not delete or rewrite a prior `docs/agents/domain.md`. A rerun or tracker switch recreates the owned tracker and applicable triage files, replaces the owned section once, and leaves all other content alone. The same confirmed choice and tracker state must produce the same files.
+
+### 6. Finish
+
+Report the configured tracker, canonical project path for Workplan, files written, and any tracker resources created. Tell the user that rerunning setup changes or repairs the owned configuration without touching unrelated instructions or domain files.
