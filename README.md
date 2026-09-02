@@ -23,6 +23,7 @@ Reusable skills and reference material for AI-assisted engineering work.
 | `ai-review-changes` | Reviewing a diff against standards and its spec |
 | `ai-setup-skills` | Configuring issue tracking, triage labels, and domain docs |
 | `ai-to-spec` | Turning a conversation into a tracker spec |
+| `ai-to-spec-workplan` | Publishing settled conversation as a Workplan spec |
 | `ai-to-tickets` | Splitting a plan or spec into dependent tickets |
 | `commit` | Committing staged changes with a Conventional Commit message |
 | `deslop` | Removing unnecessary AI-generated complexity from a diff |
