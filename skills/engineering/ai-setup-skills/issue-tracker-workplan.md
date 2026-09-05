@@ -1,6 +1,6 @@
 # Issue tracker: Workplan
 
-Specs are Workplans of type `spec`; implementation issues are Tickets owned by a spec. Ticket prerequisites, project assignment, lifecycle, labels, and reviews are native Workplan data.
+Specs are Workplans of type `spec`; wayfinding maps are Workplans of type `wayfinder`; their child issues are Tickets. Ticket prerequisites, project assignment, lifecycle, labels, and reviews are native Workplan data.
 
 ## CLI contract
 
@@ -18,7 +18,8 @@ Use the tracker-neutral workflow skills; this document supplies their Workplan o
 
 - `ai-to-spec` → publish one `spec` Workplan;
 - `ai-to-tickets` → publish Tickets and their prerequisite graph under that spec;
-- `ai-implement` → claim, implement, review, commit, and resolve one Ticket.
+- `ai-implement` → claim, implement, review, commit, and resolve one Ticket;
+- `wayfinder` → chart and work through one `wayfinder` Workplan.
 
 `ai-workplan` is the CLI reference, not a replacement workflow.
 
@@ -84,3 +85,16 @@ A claim has no owner, expiry, or release operation. On an unsuccessful or interr
 ## Labels
 
 The global label slugs are `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`, as mapped in `docs/agents/triage-labels.md`. Setup creates missing slugs and leaves existing labels unchanged. On Ticket update, supplied `--label` values replace the whole label set; preserve intended existing labels explicitly.
+
+## Wayfinding operations
+
+Used by `/wayfinder`. The **map** is one `wayfinder` Workplan; its **child tickets** are Tickets owned by that Workplan.
+
+- **Map**: create it with `wp --json workplan create --type wayfinder --slug <slug> --title <title> --content <file>`. Its body holds Destination, Notes, Decisions so far, Not yet specified, and Out of scope. The Workplan type replaces the tracker-neutral `wayfinder:map` label.
+- **Child ticket**: create it under the map with `wp --json ticket create --workplan <map-slug> ... --type <research|prototype|grilling|task> --content <file> --project <canonical-repository-path>`. Its body holds the question. The Ticket type replaces the tracker-neutral `wayfinder:<type>` label.
+- **Blocking**: use native prerequisites. Prefer repeatable `--prerequisite <complete-identifier>` flags during Ticket creation; otherwise add an edge with `wp --json dependency add <blocked-ticket> <prerequisite>` after both Tickets exist. Every edge stays within one Workplan and must remain acyclic. A prerequisite is complete only when it is `resolved`.
+- **Frontier**: run `wp --json ticket ready --workplan <map-slug> --project <canonical-repository-path>`. The first returned Ticket is the next open, unblocked, unclaimed child. A user-named Ticket must appear on this frontier before it can be claimed.
+- **Claim**: run `wp --json ticket claim <complete-identifier>` before work. The persisted ownerless claim is Workplan's equivalent of assigning the driving developer.
+- **Map update**: fetch the latest map with `wp --json workplan show <map-slug>`, change only the intended section, and replace the body with `wp --json workplan content <map-slug> --content <file>`. Re-read immediately before writing because this command replaces the whole body and concurrent sessions may have changed it.
+- **Resolve**: store the exact answer as an immutable resolution record with `wp --json review add <complete-identifier> --content <file>`, then run `wp --json ticket resolve <complete-identifier>`. Using the map-update flow, append a Decisions so far bullet containing the bold Ticket title, its complete identifier in parentheses, and a one-line gist. Workplan exposes no stable resource URL, so the title leads and the identifier is its pointer.
+- **New fog and scope changes**: create newly specifiable Tickets, wire their prerequisites, and remove their questions from Not yet specified in the same map update. For a Ticket ruled out of scope, record the rationale as its review, resolve it so it leaves the frontier, and append its title, identifier, gist, and reason under Out of scope rather than Decisions so far.
