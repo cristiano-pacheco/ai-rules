@@ -14,7 +14,7 @@ All output goes to the user's Obsidian vault, written **directly on the local fi
 
 Issues and specs for this repo live as markdown files in `<vault>/engineering/<project>/workplans/<feature>/`.
 
-This repo resolves to project name **`communication-hub`** (basename of `git rev-parse --show-toplevel`).
+This repo resolves to project name **`<project-name>`** (basename of `git rev-parse --show-toplevel`).
 
 ## Conventions
 
