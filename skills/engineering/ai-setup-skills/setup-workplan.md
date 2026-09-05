@@ -7,11 +7,7 @@ Read this branch only after the user selects Workplan and approves the generated
 Complete every check before the first `wp` tracker read or write:
 
 1. Confirm `wp` resolves to an executable with `command -v wp`.
-2. Confirm the current skill registry can resolve each exact skill name:
-   - `ai-workplan`
-   - `ai-to-spec-workplan`
-   - `ai-to-tickets-workplan`
-   - `ai-implement-workplan`
+2. Confirm the current skill registry can resolve `ai-workplan`.
 3. Load `ai-workplan`, then its machine-output, project, and label references.
 
 A source checkout containing a skill directory is not proof that the skill is installed. If any executable or skill check fails, list every missing item and stop. At this point both tracker state and repository files must still match their preflight state.

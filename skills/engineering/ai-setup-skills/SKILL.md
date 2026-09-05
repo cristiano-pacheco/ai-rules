@@ -76,7 +76,7 @@ The section has this shape, with only the applicable subsections:
 [one-line label summary]. See `docs/agents/triage-labels.md`.
 ```
 
-For Workplan, name `ai-workplan`, `ai-to-spec-workplan`, `ai-to-tickets-workplan`, and `ai-implement-workplan` in the tracker summary. Let the user edit the draft. Make no tracker or repository mutation before the user approves the exact text.
+For Workplan, name `ai-workplan` in the tracker summary. Let the user edit the draft. Make no tracker or repository mutation before the user approves the exact text.
 
 ### 4. Configure the selected tracker
 
