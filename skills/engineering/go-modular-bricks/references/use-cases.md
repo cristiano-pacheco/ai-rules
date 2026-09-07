@@ -1,5 +1,9 @@
 # Use cases
 
+For direct injection without a decorator, use the complete example in
+[direct use cases](direct-use-cases.md). It preserves the contracts below and
+keeps `Execute` as the only method on the use-case type.
+
 ## Recipe: add one business operation
 
 Create one file per operation at

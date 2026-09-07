@@ -19,7 +19,7 @@ such as metrics, tracing, or error translation there.
 
 ## Runtime profile
 
-Select the profile from explicit project standards or an accepted ADR. When
+Select the profile from the task, explicit project standards, or an accepted ADR. When
 neither specifies one, preserve the established composition; a new composition
 uses the decorated profile. Apply the selected profile consistently to CLI,
 HTTP, cross-module callers, and composition tests.
@@ -27,7 +27,8 @@ HTTP, cross-module callers, and composition tests.
 - Direct profile: provide `usecase.NewOrderConfirmUseCase` directly and inject
   `*usecase.OrderConfirmUseCase`. Keep outbound dependencies behind ports.
   A generic executor interface, wrapper, decorator factory, or telemetry module
-  is unnecessary for this profile.
+  is unnecessary for this profile. Read [direct use cases](direct-use-cases.md)
+  for the complete implementation and registration example.
 - Decorated profile: provide the raw constructor and publish
   `ucdecorator.UseCase[usecase.OrderConfirmInput, usecase.OrderConfirmOutput]`
   through one module-owned decorator provider. This boundary owns generic
