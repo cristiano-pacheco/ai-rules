@@ -2,15 +2,15 @@
 
 This repo resolves to project name **`<project-name>`** (basename of `git rev-parse --show-toplevel`). Its Workplan project is **`<canonical-repository-path>`**, the canonical physical repository path registered by setup.
 
-Specs are `spec` Workplans, wayfinding maps are `wayfinder` Workplans, and their child issues are Tickets. Workplan natively stores Ticket prerequisites, project assignment, lifecycle, labels, and reviews.
+Specs are `spec` Workplans, wayfinding maps are `wayfinder` Workplans, and their child issues are Tickets. Workplan stores Ticket prerequisites, project assignment, lifecycle, and reviews.
 
 ## CLI contract
 
-Use only `wp --json` for tracker reads and writes. Before using a command family, load `ai-workplan`, read that family's reference, and check the command's `--help`; those sources define current flags and response fields.
+Use only `wp --json` for tracker reads and writes. Before the first tracker call, load `ai-workplan` and its machine-output reference. For each command family needed by the current operation, read its reference and check the command's `--help` for current flags and response fields.
 
-Require `schema_version: 1`; read success from `data`, branch on `error.code`, ignore additive fields, and follow `page.next_cursor` with unchanged filters whenever completeness is required. Stop all tracker calls on `database_busy`. Pass Markdown through a user-private temporary file and remove it after the call.
+Require `schema_version: 1`. Read success from `data`, branch on `error.code`, and ignore additive fields. Follow `page.next_cursor` with unchanged filters whenever completeness is required. Stop all tracker calls on `database_busy`. Pass Markdown through a user-private temporary file and remove it after the call, including on failure.
 
-Project discovery chooses the longest registered ancestor of the working directory; publication commands pass the intended canonical project explicitly. Ticket identifiers are `<workplan-slug>/<NN>-<ticket-slug>`. Slugs match `[a-z0-9]+(-[a-z0-9]+)*` and are at most 63 bytes.
+Ticket identifiers are `<workplan-slug>/<NN>-<ticket-slug>`. Slugs match `[a-z0-9]+(-[a-z0-9]+)*` and are at most 63 bytes. When publishing Tickets, pass the intended canonical project explicitly instead of relying on working-directory discovery.
 
 ## Skill routing
 
@@ -24,7 +24,7 @@ When `ai-to-spec` says to publish:
 2. Set `--source` only for an explicitly identified source that resolves to one slug; similarity and recency establish no lineage.
 3. Run `wp --json workplan create --type spec --slug <slug> --title <title> [--source <source-slug>] --content <file>` and verify that the returned type, slug, title, source, and `content_markdown` exactly match the draft.
 
-On `already_exists`, retry only the create with the next suffix and unchanged title, source, and content. Preserve every existing Workplan; any other error ends publication. Workplans have no labels; apply `ready-for-agent` when creating their Tickets.
+On `already_exists`, retry only the create with the next suffix and unchanged title, source, and content. Preserve every existing Workplan; any other error ends publication. Workplan has no labels; newly created Tickets start with status `ready-for-agent`.
 
 ## Fetch tracker context
 
@@ -36,9 +36,9 @@ Fetch a Ticket with `wp --json ticket show <complete-identifier>`. When review h
 
 For the graph approved in `ai-to-tickets`:
 
-1. Give each Ticket a literal type: `research`, `prototype`, `grilling`, or `task`; use `task` for production behavior. Resolve each Ticket independently to an explicit registered project path, or intentionally choose `--no-project`. Require the global `ready-for-agent` label; only setup creates missing labels or projects. Validate and topologically order the graph with every prerequisite before its dependents.
-2. Before writing, list every Ticket under the spec across all projects. An existing drafted slug is compatible only when its title, type, exact body, project, labels, and complete prerequisite set match. Compatible Tickets must form a prefix of the ordered graph; otherwise report a publication conflict and preserve tracker state.
-3. Create the missing suffix in order with `wp --json ticket create`, the Workplan and draft fields, `--label ready-for-agent`, the explicit project selection, and every direct `--prerequisite`. Build prerequisite identifiers only from successful Workplan responses. Creation sets status `ready-for-agent`; it has no status flag. Verify the complete returned Ticket and prerequisite set before creating a dependent.
+1. Give each Ticket a literal type: `research`, `prototype`, `grilling`, or `task`; use `task` for production behavior. Resolve each Ticket independently to an explicit registered project path, or intentionally choose `--no-project`. Only setup registers missing projects. Validate and topologically order the graph with every prerequisite before its dependents.
+2. Before writing, list every Ticket under the spec across all projects. An existing drafted slug is compatible only when its title, type, exact body, project, and complete prerequisite set match. Compatible Tickets must form a prefix of the ordered graph; otherwise report a publication conflict and preserve tracker state.
+3. Create the missing suffix in order with `wp --json ticket create`, the Workplan and draft fields, the explicit project selection, and every direct `--prerequisite`. Build prerequisite identifiers only from successful Workplan responses. Creation sets status `ready-for-agent`; it has no status flag. Verify the complete returned Ticket and prerequisite set before creating a dependent.
 
 On failure, remove the temporary file, report the typed error and identifiers already created, and stop without rollback or parent-Workplan mutation.
 
@@ -55,7 +55,7 @@ Claims have no owner, expiry, or release operation. After unsuccessful or interr
 
 ## Labels
 
-Use the labels mapped in `docs/agents/triage-labels.md`. On Ticket update, `--label` replaces the complete label set; pass every label that must remain.
+Workplan has no label resources or `--label` flag. Ticket creation sets status `ready-for-agent`, satisfying requests from tracker-neutral skills to apply that label. Spec publication requires no label or status change. Map wayfinding labels to native Workplan and Ticket types as described below. Claim and resolve Tickets through the lifecycle operations.
 
 ## Wayfinding operations
 
