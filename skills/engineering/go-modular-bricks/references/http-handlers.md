@@ -11,10 +11,12 @@ result, and writes it through the established Bricks response handling.
 Create `internal/modules/<module>/http/chi/handler/<resource>_handler.go` in
 `package handler`. Keep this order: imports, handler type, pointer constructor,
 public `Handle...` methods, then stateful private methods. The type holds only
-the decorated public use-case contracts it invokes, `response.ErrorHandler`,
+the public use-case types selected in `fx-wiring.md`, `response.ErrorHandler`,
 and `logger.Logger`. Name endpoint methods with the `Handle` prefix. Keep a
 stateful helper, such as path parsing, on the handler. Keep pure reusable
 mapping outside the handler.
+
+This example uses the decorated profile.
 
 ```go
 type ProductHandler struct {
@@ -107,7 +109,7 @@ shapes consistent with the server-wide response contract.
 
 ## Keep handlers narrow
 
-Inject decorated public use-case contracts into handlers. Log errors before
+Inject the selected public use-case types into handlers. Log errors before
 rendering them, and write responses through the shared response helper. Keep
 policy and persistence work in the use case or adapter. Reserve comments for
 non-obvious transport choices; method-body narration adds no value.

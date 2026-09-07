@@ -2,14 +2,28 @@
 
 ## Recipe: map one representation to another
 
-Create `internal/modules/<module>/mapper/<name>_mapper.go` for a reused
-transformation or one too large to keep at its boundary. A mapper contains only
+Choose the package by the representation boundary before extracting a mapper:
+
+| Transformation | Owner |
+| --- | --- |
+| Persistence model/view to canonical application value | Module `mapper/` |
+| Application value or use-case output to CLI DTO | `cmd/mapper/` |
+| HTTP DTO to use-case input, or output to HTTP DTO | HTTP adapter `mapper/` |
+
+Follow project paths for these owners. A module mapper may import `model` and
+`dto`, but not `usecase`, `cmd`, or HTTP packages. The use case assembles its
+own output wrapper from mapped application values. Transport mappers may
+import public use-case contracts and canonical DTOs, never GORM models.
+
+Extract reused or substantial transformations. A mapper contains only
 functions. It has no struct, interface, constructor, context, I/O, logger, database
 call, provider client, or Fx registration.
 
 Put public functions before private helpers. Name a public function for the
 output with `To<Xxx>`. Return exactly one value, plus `error` only when parsing
 or conversion can fail.
+
+The following example belongs in the HTTP adapter mapper package:
 
 ```go
 package mapper
@@ -78,7 +92,7 @@ then map its result.
 
 ## Check before finishing
 
-- The file is under the owning module's `mapper/` directory.
+- The file and its imports follow the representation owner in the table above.
 - Each public mapper begins with `To` and names its output.
 - Every function has one output, with optional `error` as the second result.
 - Collection functions call the single-item mapper.

@@ -4,17 +4,17 @@
 
 Keep `main.go` limited to `cmd.Execute()`. Put each executable operation in
 `cmd/<command>.go` and register its Cobra command from `init`. A business
-command parses flags, builds one application input, resolves one decorated
+command parses flags, builds one application input, resolves one
 public use case, calls `Execute` exactly once, and renders only its command
 result. It does not
 validate business policy, query storage, open a transaction, call a provider,
 or translate a technical error into a new business error.
 
 Use the module's existing Fx composition helper. The command must receive the
-decorated public use-case contract, not a repository, model, adapter, or raw
-use-case implementation. Its `RunE` uses `cmd.Context()` and returns the error
-after the command boundary has logged or rendered it according to local
-convention.
+public use-case type selected in `fx-wiring.md`, never a repository, model,
+or adapter. Its `RunE` uses `cmd.Context()` and returns the error after the
+command boundary has logged or rendered it according to local convention.
+The example below uses the decorated profile.
 
 ```go
 package cmd
@@ -77,7 +77,7 @@ infrastructure and modules required by the command. Inspect it before use and
 preserve its lifecycle, logger, and error-rendering behavior. If the project
 does not have it, add it in the command package as the single command
 composition seam. The module-specific `runPublishProduct` function should
-supply only the decorated public use case and application input.
+supply only the selected public use case and application input.
 
 Use the same file order for a command: package, imports, flag variables,
 `cobra.Command`, `init`, then command runner. Keep flags at package scope only
@@ -163,7 +163,7 @@ a handler, repository, use case, or package initializer.
 ## Check before finishing
 
 - `main.go` starts only `cmd.Execute()`.
-- Each business command maps to exactly one decorated public use case and executes it once.
+- Each business command maps to exactly one public use case and executes it once.
 - Server startup and migration execution stay infrastructure commands with
   their own Fx composition.
 - Every changed command propagates Cobra's context, uses the established logger

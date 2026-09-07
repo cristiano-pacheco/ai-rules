@@ -7,9 +7,9 @@ Define it in `internal/modules/<module>/usecase/<noun>_<action>_usecase.go`,
 beside the owning use case. Use a module `dto/` type only when a service, cache,
 or at least two application collaborators need the same non-operation value.
 
-Keep transport requests and responses in the HTTP `dto/` package. Keep GORM
-records in `model/`. Neither crosses into an operation contract. Map at the
-boundary with a mapper.
+Keep transport requests and responses in their HTTP or CLI adapter DTO
+package. Keep GORM records in `model/`. Neither crosses into an operation
+contract. Map at the boundary with a mapper.
 
 ## Recipe: use-case input and output
 
@@ -42,37 +42,35 @@ Follow these rules exactly:
    the whole input as the first action in `Execute`.
 5. Add no `json`, database, or provider tags. The type is an application
    contract, not a transport or persistence record.
-6. Do not embed or alias another use case's input or output. Matching fields do
-   not make two operations one contract.
+6. Each input and output is a named struct, not an alias, a defined underlying
+   type, or an embedded contract. Shared values use named fields; matching
+   fields do not make two operations one contract.
 7. Do not expose an HTTP request, response, GORM model, SDK value, or a foreign
    module's internal type in a field.
 
-## Recipe: shared application data
+## Shared application values
 
-Create `internal/modules/<module>/dto/<service_name>_dto.go` only after naming
-at least two application consumers or one service/cache port that needs the
-shape. Keep the file to its input and output structs.
+Name the consumers before extracting a canonical value into module `dto/`.
+Use a business value name such as `Order` or `OrderSummary`. Each operation
+keeps its own wrapper and refers to that value through a named field:
 
 ```go
-package dto
+// In dto/order.go.
+type Order struct {
+	ID     uint64
+	Status string
+}
 
-type SendEmailConfirmationInput struct {
-	UserID                uint64
-	ConfirmationTokenHash []byte
+// In usecase/order_confirm_usecase.go.
+type OrderConfirmOutput struct {
+	Order dto.Order
 }
 ```
 
-Use this shape in a module service port, not in a use-case boundary:
-
-```go
-type SendEmailConfirmationService interface {
-	Execute(ctx context.Context, input dto.SendEmailConfirmationInput) error
-}
-```
-
-Keep an operation's input and output with that operation, even if a service
-later has similar fields. Extract a business-shaped value only when it has a
-clear owner and real reuse. A catch-all `dto` package has neither.
+A service or cache port may also own a reusable input value declared in `dto`.
+Repository ports continue to exchange persistence values as specified in
+`repositories.md`. Keep an operation-specific field in its operation contract;
+change a canonical DTO only when the change belongs to every consumer.
 
 ## Collection contracts
 

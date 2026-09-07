@@ -17,6 +17,7 @@ Read these references in full:
 - `../http-dtos.md`
 - `../http-handlers.md`
 - `../http-routers.md`
+- `../fx-wiring.md`
 - `application.md`
 
 Then select the applicable contracts:

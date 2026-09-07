@@ -1,35 +1,17 @@
 # Architecture exceptions
 
-An architecture exception is a deliberate departure from a selected modular
-contract. Record it in an ADR before implementing the departure.
+First apply the project's documented source precedence. An explicit local
+standard selecting direct injection, logging, test layout, or another supported
+profile already resolves that choice. It does not require a new ADR just to
+replace a generic example in this skill.
 
-Place the ADR in `docs/adrs`. It applies only when its content explicitly
-justifies the violated contract for the current context. Follow the exception
-as narrowly as the document describes it.
+For an undocumented departure from a dependency or representation contract,
+search the project's documented ADR location. If none is documented, check
+`docs/adr` and `docs/adrs`. Read an applicable accepted ADR in full and apply
+only the scope it justifies. Nearby violations do not authorize another one.
 
-Search `docs/adrs` when the requested change or a comparable local flow
-violates an invariant. Read a candidate ADR in full before relying on it and
-cite it with the affected boundary. Treat a deviation without an applicable
-ADR as a contract violation. Keep the changed flow compliant and report an
-existing violation. If the requested change cannot comply, stop and ask before
-creating an ADR or implementing the exception.
-
-## Examples
-
-### Good
-
-```markdown
-# ADR-0042: use a shared read model for order history
-
-Status: accepted
-
-The reporting module needs data from orders and billing. It will read a
-published read model for 90 days, owned by reporting. Owner: platform team.
-Remove this exception when the reporting API replaces the read model.
-```
-
-### Bad
-
-```markdown
-Use billing's repository from orders for now. Revisit later.
-```
+Keep new work compliant and report unrelated existing debt. Continue routine
+implementation and fixes within the authorized task. Ask only when conflicting
+project requirements leave a material decision unresolved, or compliance needs
+a change outside the authorized scope. State the conflicting sources and the
+specific decision needed. Create or change an ADR only when authorized.

@@ -1,51 +1,53 @@
 ---
 name: go-modular-bricks
-description: Reference router for developing REST endpoints and Cobra CLI commands in Go services built with Bricks modular architecture. Use when a requested Go or Bricks change adds or alters an HTTP endpoint, business command, server command, or migration command.
+description: Implement, refactor, or review Go Bricks modules, including use cases, ports, adapters, Fx wiring, REST endpoints, and Cobra commands.
 ---
 
 # Go modular bricks
 
-Route the requested change to the smallest complete set of Bricks contracts.
-The original request remains the task. After loading the contracts, continue
-that task without asking the user to choose specialist references.
+Use the project's contracts to complete the requested change or review. Bricks
+may be established by repository guidance, module layout, imports, or `go.mod`.
 
-## Route the entry point
+## Select the contracts
 
-1. Confirm from `go.mod`, imports, or existing composition that the project uses
-   Bricks modular architecture.
-2. Read `references/data-flow.md` in full. Its dependency and representation
-   rules apply to every route.
-3. Inspect the owning module and the closest comparable flow.
-4. Select one route:
-   - For an HTTP endpoint, read `references/flows/rest.md` in full.
-   - For a Cobra business, server, or migration command, read
-     `references/flows/cli.md` in full.
-5. Follow that route's pointers. Read every selected reference in full before
-   editing. Select conditional references from the requested behavior and the
-   comparable flow, not from directory names alone.
+Read the project's `CODING_STANDARDS.md` when present, then
+[the dependency and representation rules](references/data-flow.md). Follow the
+project's documented source precedence. Explicit project standards and accepted
+ADRs select local variants over generic examples here; nearby code is evidence,
+not authority. Resolve an actual conflict through
+[architecture exceptions](references/adr-exceptions.md).
 
-Routing is complete when every changed or reused boundary has a selected
-contract and no unrelated reference was loaded.
+Select references by the affected behavior:
 
-When a local precedent or requested change conflicts with an invariant, read
-`references/adr-exceptions.md` in full, then search `docs/adrs`. An ADR applies
-only when its content explicitly justifies that violation for the current
-context. Without an applicable ADR, keep the new flow compliant and report the
-existing violation. If compliance is impossible without expanding the task,
-stop and ask. Ask before creating a new ADR.
+| Task | Reference |
+| --- | --- |
+| REST endpoint or HTTP boundary | [REST flow](references/flows/rest.md) |
+| Cobra business command or process lifecycle | [CLI flow](references/flows/cli.md) |
+| Internal application, persistence, mapping, configuration, or composition change | [Application contracts](references/flows/application.md) |
+| Architecture review | Use the same routes for the boundaries in the diff |
 
-Do not pause merely to announce the selected references. In the final report,
-name the route and references used.
+Read each selected contract before changing or judging its boundary. For a
+narrow change, inspect its owner and callers; for a behavior change, trace input,
+use case, ports, adapters, Fx registration, and output. Include affected tests,
+public contracts, locales, migrations, and generated artifacts. Load further
+references when that trace reveals another affected boundary, including one
+that is reused unchanged. Documentation-only edits need only their subject's
+contracts.
 
-## Verify through the project
+## Complete the change
 
-After the original task is implemented, read `docs/agents/verification.md` when
-it exists and run its applicable gates. Otherwise inspect the `Makefile` and
-run these targets only when defined:
+Check the final diff, including added, moved, deleted, and untracked artifacts,
+against the selected contracts and project standards. Check ownership, public
+representations, and runtime wiring explicitly; passing tests alone cannot
+establish those properties. If the diff expands, select the newly affected
+contracts and finish the corresponding work.
 
-1. `make lint`
-2. `make test`
-3. `make test-integration`
+Use the project's verification instructions and existing test seams for the
+changed behavior. Inspect `docs/agents/verification.md` when present, otherwise
+use the repository's build and test configuration. Fix failures caused by the
+change and rerun affected checks. Report unavailable prerequisites accurately.
 
-Record each command and result. Report missing targets and unavailable
-prerequisites without inventing replacement commands or claiming success.
+Finish when the requested behavior is complete, its affected contracts have
+been checked, and applicable verification has passed or a concrete blocker is
+reported. For a review, report evidenced violations without implementing fixes
+unless requested. Summarize validation and any unresolved conflict or debt.

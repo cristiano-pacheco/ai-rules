@@ -18,7 +18,10 @@ Create one file per operation at
 The file order is input, output, use-case type, constructor, `Execute`, then
 private methods. Define both input and output even when one is empty. Their
 fields are explicit, self-contained application values with no JSON tags and no
-HTTP DTO, GORM model, SDK type, or shared use-case DTO.
+HTTP DTO, GORM model, or SDK type. Keep each operation's input and output as
+its own named struct. Reuse canonical application values through named fields
+according to [application DTOs](application-dtos.md), never another operation's
+contract through aliases, defined underlying types, or embedding.
 
 This example follows a project that injects a logger into its use cases:
 
@@ -113,8 +116,8 @@ typed module error for the expected business condition. Never return
 `errors.New(...)` for that condition.
 
 Do not create generic execution tracing or metrics inside `Execute`. The
-decorated use-case boundary owns that shared observability. Emit a trace or
-metric there only for a meaningful domain decision, event, or failure. Keep
+selected runtime profile owns shared observability. Add domain telemetry
+only when the project permits it and the requested behavior needs it. Keep
 stateful helpers as private methods on the use-case type. Do not add
 package-level helpers beside a use-case type.
 
@@ -135,43 +138,22 @@ if err != nil {
 }
 ```
 
-If the public boundary cannot express the interaction, stop and ask before
-creating an ADR or coupling to an internal package.
+If the public boundary cannot express the interaction, extend that public API
+when the requested task authorizes it. Otherwise follow `adr-exceptions.md` to
+resolve the scope decision. Keep the other module's internals private.
 
-## Wire the decorated use case
+## Runtime wiring
 
-Register the raw constructor and expose the decorated API from the module's
-`fx.go`:
-
-```go
-type decorateUseCasesIn struct {
-	fx.In
-	UseCaseDecoratorFactory *ucdecorator.Factory
-	OrderConfirmUseCase     *usecase.OrderConfirmUseCase
-}
-
-type decorateUseCasesOut struct {
-	fx.Out
-	OrderConfirmUseCase ucdecorator.UseCase[usecase.OrderConfirmInput, usecase.OrderConfirmOutput]
-}
-
-func provideDecoratedUseCases(in decorateUseCasesIn) decorateUseCasesOut {
-	return decorateUseCasesOut{
-		OrderConfirmUseCase: ucdecorator.Wrap(in.UseCaseDecoratorFactory, in.OrderConfirmUseCase),
-	}
-}
-```
-
-Keep one `provideDecoratedUseCases` function for the module and add the raw
-constructor to its `fx.Provide` group.
+Follow the profile in [Fx composition](fx-wiring.md) when wiring this operation.
 
 ## Check before finishing
 
 - One operation has one `Execute(ctx, input) (output, error)` contract.
 - Input validation is the first action and error logging follows the module's established use-case convention.
 - Expected outcomes use typed module errors; ports are interfaces.
-- Generic execution telemetry stays in the decorated boundary; use-case
-  telemetry marks only meaningful domain decisions, events, or failures.
+- Telemetry and injection follow the selected runtime profile.
 - Public operation contracts contain no model; internal policy uses only models owned by its module.
-- No raw errors, shared contracts, or standalone helpers were introduced.
-- Fx exposes the decorated use-case API.
+- Unknown errors retain their causes; operation wrappers stay distinct.
+- Helpers belong to the use case, service, validator, enum, error catalog, or
+  mapper according to their behavior, not simply their original file location.
+- Fx exposes the selected public use-case type.

@@ -17,10 +17,33 @@ Expose raw use cases to composition and integration code. Publish the decorated
 use-case contract to entry points when the application applies common behavior
 such as metrics, tracing, or error translation there.
 
+## Runtime profile
+
+Select the profile from explicit project standards or an accepted ADR. When
+neither specifies one, preserve the established composition; a new composition
+uses the decorated profile. Apply the selected profile consistently to CLI,
+HTTP, cross-module callers, and composition tests.
+
+- Direct profile: provide `usecase.NewOrderConfirmUseCase` directly and inject
+  `*usecase.OrderConfirmUseCase`. Keep outbound dependencies behind ports.
+  A generic executor interface, wrapper, decorator factory, or telemetry module
+  is unnecessary for this profile.
+- Decorated profile: provide the raw constructor and publish
+  `ucdecorator.UseCase[usecase.OrderConfirmInput, usecase.OrderConfirmOutput]`
+  through one module-owned decorator provider. This boundary owns generic
+  execution tracing and metrics. Read [decorated wiring](decorated-use-cases.md)
+  when adding or changing that provider.
+
+Examples using `ucdecorator` in other references illustrate the decorated
+profile only. For direct projects, use the concrete pointer in those signatures
+and omit decorator wiring. Observability references apply only when that
+capability is part of the requested behavior and permitted by project standards.
+Preserve structured logging and caller context in either profile.
+
 ## HTTP bindings
 
 Provide each handler from its module composition root. Its constructor receives
-the decorated public use-case contracts, the established error renderer, and
+the selected public use-case types, the established error renderer, and
 the logger. The handler is an inbound adapter, not a port published to another
 module.
 

@@ -6,11 +6,12 @@ branch.
 
 ## Business command
 
-A business command maps flags and arguments to exactly one decorated use case.
+A business command maps flags and arguments to exactly one public use case.
 Read these references in full:
 
 - `../commands.md`
 - `../command-tests.md`
+- `../fx-wiring.md`
 - `application.md`
 
 Follow every applicable pointer in `application.md` before editing. Preserve

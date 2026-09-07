@@ -12,13 +12,17 @@ boundary affected by the command:
 
 - accepted flags and arguments map to the expected use-case input;
 - invalid command syntax fails before application execution;
-- the command passes Cobra's context to exactly one decorated use case;
+- the command passes Cobra's context to exactly one public use case;
 - use-case output or error reaches the established command renderer;
 - a mapping test does not start unrelated databases, servers, caches, clients,
   or providers.
 
-Use the project's existing fake, mock, Fx replacement, or command factory. This
-contract does not prescribe a mocking library or a second composition path.
+An existing command acceptance seam may boot the local application with an
+isolated database and real use cases. Preserve it when it proves the public
+contract; direct injection does not require inventing a use-case interface for
+mocking. Use the project's existing fake, mock, Fx replacement, or command
+factory where that is the established seam. This contract does not prescribe
+a mocking library or a second composition path.
 The use case's own tests prove policy, persistence, and side effects.
 
 ## Infrastructure commands
