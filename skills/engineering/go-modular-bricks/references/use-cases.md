@@ -1,8 +1,8 @@
 # Use cases
 
-For direct injection without a decorator, use the complete example in
-[direct use cases](direct-use-cases.md). It preserves the contracts below and
-keeps `Execute` as the only method on the use-case type.
+When creating or changing a use-case type or its registration in a direct-profile
+project, read [direct use cases](direct-use-cases.md). Policy-only edits use the
+contracts below without loading that example.
 
 ## Recipe: add one business operation
 
@@ -23,9 +23,10 @@ The file order is input, output, use-case type, constructor, `Execute`, then
 private methods. Define both input and output even when one is empty. Their
 fields are explicit, self-contained application values with no JSON tags and no
 HTTP DTO, GORM model, or SDK type. Keep each operation's input and output as
-its own named struct. Reuse canonical application values through named fields
-according to [application DTOs](application-dtos.md), never another operation's
-contract through aliases, defined underlying types, or embedding.
+its own named struct. When defining or changing these value shapes or their
+ownership, read [application DTOs](application-dtos.md). Reuse canonical
+application values through named fields, never another operation's contract
+through aliases, defined underlying types, or embedding.
 
 This example follows a project that injects a logger into its use cases:
 

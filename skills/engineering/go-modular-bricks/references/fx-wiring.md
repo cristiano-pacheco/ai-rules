@@ -28,7 +28,8 @@ HTTP, cross-module callers, and composition tests.
   `*usecase.OrderConfirmUseCase`. Keep outbound dependencies behind ports.
   A generic executor interface, wrapper, decorator factory, or telemetry module
   is unnecessary for this profile. Read [direct use cases](direct-use-cases.md)
-  for the complete implementation and registration example.
+  when creating or changing a use-case type or its direct registration, not
+  for unrelated adapter bindings.
 - Decorated profile: provide the raw constructor and publish
   `ucdecorator.UseCase[usecase.OrderConfirmInput, usecase.OrderConfirmOutput]`
   through one module-owned decorator provider. This boundary owns generic
@@ -37,8 +38,10 @@ HTTP, cross-module callers, and composition tests.
 
 Examples using `ucdecorator` in other references illustrate the decorated
 profile only. For direct projects, use the concrete pointer in those signatures
-and omit decorator wiring. Observability references apply only when that
-capability is part of the requested behavior and permitted by project standards.
+and omit decorator wiring. Load observability references only for affected
+telemetry behavior or I/O instrumentation required by the selected project
+contract, and only when permitted by project standards. Choosing a profile alone
+does not select them.
 Preserve structured logging and caller context in either profile.
 
 ## HTTP bindings

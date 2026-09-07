@@ -1,53 +1,47 @@
 ---
 name: go-modular-bricks
-description: Implement, refactor, or review Go Bricks modules, including use cases, ports, adapters, Fx wiring, REST endpoints, and Cobra commands.
+description: Develop, maintain, or review Go services using Bricks modular architecture.
 ---
 
 # Go modular bricks
 
-Use the project's contracts to complete the requested change or review. Bricks
-may be established by repository guidance, module layout, imports, or `go.mod`.
+Apply the project's documented source precedence: explicit standards and accepted
+ADRs override generic examples here; nearby code is evidence, not authority.
+Consult [architecture exceptions](references/adr-exceptions.md) for unresolved
+contract conflicts or undocumented departures.
 
-## Select the contracts
+## Route by responsibility
 
-Read the project's `CODING_STANDARDS.md` when present, then
-[the dependency and representation rules](references/data-flow.md). Follow the
-project's documented source precedence. Explicit project standards and accepted
-ADRs select local variants over generic examples here; nearby code is evidence,
-not authority. Resolve an actual conflict through
-[architecture exceptions](references/adr-exceptions.md).
+Identify the boundary being changed, diagnosed, or reviewed from the task and
+owning code. A SQL fix behind an endpoint is a persistence task, not automatically
+a REST task. If the owner is unknown, trace the failing path before selecting
+specialists.
 
-Select references by the affected behavior:
-
-| Task | Reference |
+| Responsibility in scope | Router |
 | --- | --- |
-| REST endpoint or HTTP boundary | [REST flow](references/flows/rest.md) |
-| Cobra business command or process lifecycle | [CLI flow](references/flows/cli.md) |
-| Internal application, persistence, mapping, configuration, or composition change | [Application contracts](references/flows/application.md) |
-| Architecture review | Use the same routes for the boundaries in the diff |
+| HTTP DTOs, handlers, routes, middleware, collection queries, API documentation | [REST](references/flows/rest.md) |
+| Cobra business commands, server or migration-command behavior | [CLI](references/flows/cli.md) |
+| Use cases, types, mapping, ports, adapters, schema, Fx, configuration, ownership, resources, telemetry, tests | [Application](references/flows/application.md) |
 
-Read each selected contract before changing or judging its boundary. For a
-narrow change, inspect its owner and callers; for a behavior change, trace input,
-use case, ports, adapters, Fx registration, and output. Include affected tests,
-public contracts, locales, migrations, and generated artifacts. Load further
-references when that trace reveals another affected boundary, including one
-that is reused unchanged. Documentation-only edits need only their subject's
-contracts.
+Read [data flow](references/data-flow.md) when changing or judging dependency
+direction, representation boundaries, or application/entry-point orchestration.
+Local implementation or content fixes need only their specialists.
 
-## Complete the change
+## Loading boundaries
 
-Check the final diff, including added, moved, deleted, and untracked artifacts,
-against the selected contracts and project standards. Check ownership, public
-representations, and runtime wiring explicitly; passing tests alone cannot
-establish those properties. If the diff expands, select the newly affected
-contracts and finish the corresponding work.
+- Select matching rows and triggered companions, taking the union for mixed
+  tasks. Paths resolve relative to the document containing them. Read selected
+  contracts in full before editing or judging their boundary.
+- Inspect callers and dependencies without automatically loading their
+  specialists. Expand only for an affected responsibility or a specific
+  unverified guarantee, such as absence semantics or transaction participation.
+  Stop at unchanged boundaries whose relevant guarantees are verified.
+- Links are conditional pointers, not a recursive reading list. Load only the
+  selected runtime profile's example; reuse contracts already in context.
+- Test-only work selects the proof seam and asserted behavior's specialist.
+  Documentation-only work selects its subject. Reviews select every boundary
+  being judged, including unchanged ones explicitly in scope.
 
-Use the project's verification instructions and existing test seams for the
-changed behavior. Inspect `docs/agents/verification.md` when present, otherwise
-use the repository's build and test configuration. Fix failures caused by the
-change and rerun affected checks. Report unavailable prerequisites accurately.
-
-Finish when the requested behavior is complete, its affected contracts have
-been checked, and applicable verification has passed or a concrete blocker is
-reported. For a review, report evidenced violations without implementing fixes
-unless requested. Summarize validation and any unresolved conflict or debt.
+Complete when every in-scope boundary satisfies its selected contracts and project
+verification, or report a concrete blocker. Re-select if the diff expands; check
+ownership, public representations, and runtime registration where affected.

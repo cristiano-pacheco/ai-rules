@@ -1,40 +1,42 @@
-# REST route
+# REST router
 
-Use this route for a new or changed Bricks Chi endpoint.
+Use for an HTTP boundary in scope, not merely a feature reachable over HTTP.
+Inspect the owning adapter and its immediate contracts. Select only matching
+rows; adding an endpoint often matches several, editing one may match just one.
 
-## Inspect and classify
+## Select HTTP contracts
 
-Inspect the owning module, its `fx.go`, and the closest comparable endpoint.
-Classify the operation as a collection, single-resource read, create, update,
-delete, or action. Infer established path, authentication, response, mapping,
-and error conventions from that flow when they do not conflict with
-`../data-flow.md`.
+| Responsibility in scope | Read in full | Stop condition / companion |
+| --- | --- | --- |
+| Request/response fields, JSON tags, transport DTO ownership or shape | `../http-dtos.md` | Existing DTOs used unchanged do not select this contract unless their wire guarantee is under review. |
+| Decoding, transport validation, use-case invocation, status, response or error rendering | `../http-handlers.md` | Inspect the called use-case API; continue downstream only for an affected or unverified guarantee. |
+| Path, method, route group, registration, or middleware attachment/scope | `../http-routers.md` | An existing router registering a new method on an existing handler need not change Fx. |
+| Middleware implementation or transport-context behavior | `../http-middleware.md` | Add routers only if attachment/scope is affected; application authorization policy belongs to use cases. |
+| Collection pagination, ordering, filters, or page metadata | `../pagination-filtering.md` | Add DTO, handler, and application contracts only for the boundaries that implement the affected query/response guarantee. |
+| Requested API documentation, or documentation required by the project for this route | `../api-documentation.md` | A route change alone does not activate documentation. Documentation alone does not activate implementation contracts. |
 
-## Load the REST contracts
+A new endpoint normally selects handlers and routers; select HTTP DTOs if it
+introduces or changes a wire representation. Inspect constructor and route-group
+registration to determine whether composition also changes.
 
-Read these references in full:
+## Cross-boundary work
 
-- `../http-dtos.md`
-- `../http-handlers.md`
-- `../http-routers.md`
-- `../fx-wiring.md`
-- `application.md`
+Use `application.md` only when a non-HTTP responsibility is in scope: for example,
+representation mapping, a new/changed use-case contract, business error semantics,
+new constructor dependencies, or Fx registration. Select its matching rows, not
+all downstream contracts. A new transport mapping selects mappers even when
+implemented inline; it does not automatically select persistence mapping.
 
-Then select the applicable contracts:
-
-| Endpoint impact | Read in full |
-| --- | --- |
-| Collection pagination, ordering, or filtering changes | `../pagination-filtering.md` |
-| Module-owned middleware changes | `../http-middleware.md` |
-| API documentation is requested or the project requires it for changed routes | `../api-documentation.md` |
-
-`application.md` is the downstream router, not a contract to copy. Follow its
-pointers before editing.
+Pure HTTP mapper changes can go directly to `application.md` for mappers and
+unit tests; add the DTO or handler specialist only if that boundary's guarantee
+also changes or is being judged. Passing an existing error to the established
+renderer selects handlers, not error-catalog or locale work.
 
 ## Proof
 
-Prove application and adapter behavior through the references selected by
-`application.md`. When the project already has a composed HTTP test setup,
-extend it to cover the changed route, method, status, serialization, and error
-boundary. Isolated handler tests and a new endpoint-specific HTTP test framework
-are outside this proof contract.
+Use the project's existing HTTP test setup to prove affected method, path,
+middleware scope, status, serialization, and error behavior. Do not introduce
+an endpoint-specific test framework or isolated handler tests by default.
+Select application test contracts only when application/adapter behavior or a
+composed integration seam is part of the proof. Project verification requirements
+take precedence over these defaults.
