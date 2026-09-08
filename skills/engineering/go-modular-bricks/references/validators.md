@@ -6,12 +6,24 @@ Put simple, operation-local constraints on the use-case input with `validate`
 tags and call `uc.validator.Struct(input)` first in `Execute`. Create a named
 validator only for a reusable business rule or a rule that needs external data.
 
+Classify by the rule's acceptance/rejection behavior, not the caller count,
+method name, or dependencies. Reading a repository, filesystem, or remote API
+does not turn a validation rule into a service. A public validation command may
+call a use case that orchestrates loading and validation; the reusable rule
+itself remains a validator. Loading, conversion, and mutation belong to their
+respective components, not to `Validate`.
+
+Name the component `<Name>Validator`, with a consumer-owned port of the same
+name. A validating `*Service` in `service/` is a classification failure, even
+if its methods are private or it currently has one caller.
+
 A named validator always has two files:
 
 1. `internal/modules/<module>/ports/<name>_validator.go`
 2. `internal/modules/<module>/validator/<name>_validator.go`
 
-The port contains only the documented interface. Keep the implementation in
+The port contains only the interface; document non-obvious rules according to
+the project's comment policy. Keep the implementation in
 this order: package, imports, constants, type, interface assertion, constructor,
 public methods, then private methods.
 
@@ -62,9 +74,13 @@ func (v *PasswordValidator) Validate(password string) error {
 }
 ```
 
-Do not add comments above the implementation type, constructor, or methods.
-The port comment explains purpose and rules. Add locale entries for each new
-typed error.
+The examples use sentinel errors and interface comments. Apply the project's
+error and comment contracts instead when they differ: a constructor-based error
+is returned as `errs.ErrX(cause)`, and a no-boilerplate-comment policy also applies
+to ports. Own validation failures in the validator's component error file when
+the project requires per-component files. Add locale entries only for a project
+that uses the locale error profile; see [errors](errors.md) when adding or changing
+an error contract.
 
 ## Recipe: I/O-backed validator
 
@@ -126,11 +142,15 @@ fx.Provide(
 )
 ```
 
-Create `validator/<name>_validator_test.go`. Cover a valid value, every invalid
+Select the project's permitted test seam before creating tests. A project that
+requires real-adapter integration tests through public use cases must prove
+these rules there, without validator-local tests or doubles. Otherwise create
+`validator/<name>_validator_test.go`. Cover a valid value, every invalid
 condition, empty input when relevant, and both sides of each threshold. Assert
-the typed error with `assert.ErrorIs`, never its rendered message. For an
-I/O-backed validator, stub the port and prove both the collaborator error and
-the domain outcome.
+the typed error through the project's supported identity contract, never its
+rendered message. For an I/O-backed validator, prove both the collaborator error
+and domain outcome; stub the port only when the project permits doubles.
+The following test assumes exported sentinel errors and a permitted unit seam:
 
 ```go
 func TestPasswordValidator_TooShort_ReturnsError(t *testing.T) {
@@ -148,4 +168,8 @@ func TestPasswordValidator_TooShort_ReturnsError(t *testing.T) {
 - Constants define thresholds and ports describe non-obvious rules.
 - Stateless is the default. Context and dependencies appear only for I/O.
 - The implementation asserts the port and its constructor returns a pointer.
-- Every typed validation error has locale entries and complete boundary tests.
+- Each rejection follows the project's typed-error ownership and construction
+  pattern; locales appear only under the locale profile.
+- Boundary tests use the project-selected seam, without forbidden local tests
+  or doubles.
+- No reusable validation is implemented as a service or hidden in its helpers.

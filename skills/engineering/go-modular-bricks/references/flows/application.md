@@ -9,14 +9,14 @@ below are relative to this file.
 
 | Responsibility in scope | Contract | Conditional companions / exclusions |
 | --- | --- | --- |
-| Use-case policy, orchestration, input/output, operation-local validation, or helpers | `../use-cases.md` | Simple input validation tags stay here; reusable validation selects validators. |
+| Use-case policy, orchestration, input/output, or operation-local input validation | `../use-cases.md` | Classify helpers by their bodies: conversions select mappers; reusable checks select validators. |
 | Application DTO definition, operation input/output shape, shared values, aliases, embedding, or type ownership | `../application-dtos.md` | Calling an unchanged operation with existing types is not a trigger. |
 | Representation conversion, inline or extracted, including HTTP/CLI mapping | `../mappers.md` | Add each representation's specialist only if its shape/ownership/guarantee is affected; pure conversion does not select runtime wiring. |
 | Consumer-owned interface, outbound dependency contract, adapter conformance, or new I/O collaborator | `../ports.md` | Includes repository ports; using an unchanged verified port alone is not a trigger. |
-| Reusable pure or I/O-backed capability | `../services.md` | I/O services also select ports; pure services do not need an I/O port. |
-| Reusable validation rule or named validator | `../validators.md` | Named validators also select ports, including stateless ones. |
-| Constrained domain value: accepted literals, parsing, validation, representation | `../enums.md` | New invalid-value errors select errors and locales; unchanged existing errors do not require catalog work. |
-| Expected-error declaration, identity, status, cause preservation, or infrastructure-to-business translation | `../errors.md` | Add locales for a new/changed translation code or message, not merely returning an existing error. |
+| Reusable pure or I/O-backed capability not owned by validation, mapping, persistence, or protocol adaptation | `../services.md` | Apply `../../SKILL.md` classification first. I/O services also select ports; pure services do not need an I/O port. |
+| Reusable acceptance/rejection rule, named validator, or validation disguised as a service/helper | `../validators.md` | Named validators also select ports, including stateless ones. External-data checks remain validation. |
+| Constrained domain value: accepted literals, parsing, validation, representation | `../enums.md` | New invalid-value errors select errors; add locales only under a project locale profile. |
+| Expected-error declaration, identity, status, cause preservation, or infrastructure-to-business translation | `../errors.md` | Select the project error profile first; add locales only for a new/changed translation code or message under the locale profile. |
 | Locale text, coverage, embedded files, or translation lookup | `../locales.md` | Text-only edits do not select errors or Fx; add them if catalog semantics or filesystem registration changes. |
 | Module creation, split, removal, connection, or business/data ownership | `../modules.md`, `../modular-architecture.md` | Select component contracts only for actual responsibilities, not every directory a module could own. |
 | Dependency direction, layer placement, cross-module access, or architectural boundaries | `../modular-architecture.md` | Add use cases for a changed cross-module application call; add modules for changed ownership. |
@@ -57,7 +57,10 @@ prerequisite for unrelated adapter binding or a policy-only edit.
 ## Select proof by seam
 
 For implementation and test changes, select the seam that proves the affected
-behavior. For reviews, select the same contract when judging its test evidence.
+behavior under the project's testing rules. Those rules override the defaults
+below. Integration-only projects select integration tests even for pure mappers
+and validators. A no-doubles rule excludes external-provider mocks. For reviews,
+select the same contract when judging test evidence.
 Prose/resource-text-only work does not automatically select a Go test guide.
 
 | Proof needed | Read in full |

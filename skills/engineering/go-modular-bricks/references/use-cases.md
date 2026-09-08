@@ -122,9 +122,14 @@ typed module error for the expected business condition. Never return
 
 Do not create generic execution tracing or metrics inside `Execute`. The
 selected runtime profile owns shared observability. Add domain telemetry
-only when the project permits it and the requested behavior needs it. Keep
-stateful helpers as private methods on the use-case type. Do not add
-package-level helpers beside a use-case type.
+only when the project permits it and the requested behavior needs it.
+
+Classify extracted logic before choosing a helper shape. Keep operation-owned
+orchestration detail as private methods in the use-case file; package-level
+helpers do not belong beside the type. Reusable acceptance/rejection rules
+select [validators](validators.md), and representation conversion that needs
+extraction selects [mappers](mappers.md). Neither becomes use-case-owned merely
+by using a private receiver or a separate helper file.
 
 ## Recipe: call another module
 

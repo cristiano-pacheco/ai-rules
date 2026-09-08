@@ -12,9 +12,9 @@ module's `dto` package, models and persistence views in `model`, and every
 implementation beside its technical mechanism. A port may reference those
 module-owned types without declaring them locally.
 
-Document each exported interface. State its business purpose, absence behavior,
-and any consistency rule not clear from the method names. Leave boilerplate
-comments off the implementation.
+Apply the project's comment policy to interfaces as well as implementations.
+Document absence behavior and consistency rules only when names and signatures
+cannot express them. Leave boilerplate comments off both.
 
 ```go
 package ports
@@ -25,8 +25,6 @@ import (
 	"example.com/project/internal/modules/order/model"
 )
 
-// OrderRepository persists orders for application operations. FindByID returns
-// the module's not-found error when no order exists.
 type OrderRepository interface {
 	FindByID(ctx context.Context, id uint64) (model.OrderModel, error)
 	Create(ctx context.Context, order model.OrderModel) (model.OrderModel, error)
@@ -46,7 +44,7 @@ they receive or return `*gorm.DB` to run one explicit transaction.
 | Need | Port location and naming | Implementation location |
 | --- | --- | --- |
 | Persistence | `ports/<entity>_repository.go`, `XxxRepository` | `repository/<entity>_repository.go` |
-| External or reusable service | `ports/<name>_service.go`, `XxxService` | `service/<name>_service.go` |
+| I/O service not owned by a more specific category | `ports/<name>_service.go`, `XxxService` | `service/<name>_service.go` |
 | Internal remote service | `ports/<name>_client.go`, `XxxClient` | `client/<name>_client.go` |
 | Third-party capability | `ports/<name>_provider.go`, `XxxProvider` | `provider/<name>_provider.go` |
 | Reusable validation | `ports/<name>_validator.go`, `XxxValidator` | `validator/<name>_validator.go` |
@@ -86,8 +84,10 @@ fx.Provide(
 ```
 
 Inject `ports.OrderRepository` into the use case, not
-`*repository.OrderRepository`. A pure helper needs no port. Keep it in a mapper
-or pure service until a collaborator boundary appears.
+`*repository.OrderRepository`. Mapping functions and pure services need no port
+unless a project boundary explicitly requires one. Named validators are a
+separate contract: they always have a consumer-owned port, including stateless
+validators. Purity does not change that classification.
 
 ## Check before finishing
 

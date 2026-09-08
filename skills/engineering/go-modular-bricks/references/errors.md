@@ -1,8 +1,61 @@
 # Errors
 
-## Recipe: add an expected module error
+## Select the project error profile
 
-Expected business outcomes live in
+Read the project's error rules and coding patterns before choosing a declaration
+or return shape. Error files, constructors, cause handling, codes, HTTP statuses,
+and locales are one project contract, not independent options to mix.
+
+| Project pattern | Recipe |
+| --- | --- |
+| Component-owned sentinels and constructors, without codes or locales | Component-owned constructors below |
+| Bricks error codes, HTTP statuses and translations | Bricks catalog error below |
+
+Use only the selected recipe. An existing catalog does not override a stricter
+documented pattern.
+
+If no profile is documented, inspect the established error path. Resolve a
+material conflict through `adr-exceptions.md` rather than combining profiles.
+
+## Recipe: component-owned constructors
+
+Create `internal/modules/<module>/errs/<component>_error.go`. The component that
+owns the failing operation or rejected rule owns this file; validation failures
+belong to the validator, not its calling service. Declare a distinct unexported
+sentinel and same-named exported constructor for each expected outcome or failing
+operation, following the project's exact pattern:
+
+```go
+var errCreateRunFailed = errors.New("create run failed")
+
+func ErrCreateRunFailed(cause error) error {
+	return fmt.Errorf("%w: %w", errCreateRunFailed, cause)
+}
+```
+
+Callers return the constructor result directly:
+
+```go
+if err := tx.Create(&run).Error; err != nil {
+	return model.RunModel{}, errs.ErrCreateRunFailed(err)
+}
+```
+
+Keep `fmt.Errorf` inside these constructors when the project mandates it.
+Preserve real causes; for a rejected condition without an underlying error,
+follow the project's documented constructor convention instead of fabricating
+a technical cause. If that convention is missing, resolve it before adding the
+error. Tests use the supported public identity contract; an unexported sentinel
+is not accessible to external integration tests, and a constructor is not an
+`errors.Is` target.
+
+Before finishing, verify each error's owner, file, identity, constructor and
+cause behavior. Check that callers return it directly and that the diff adds no
+catalog or locale files. Skip the catalog-specific checks below.
+
+## Recipe: Bricks catalog error
+
+Under the catalog profile, expected business outcomes live in
 `internal/modules/<module>/errs/errs.go`. Read that file before editing it. Use
 its module prefix, group order, existing `brickserrs` alias, and the next unused
 sequential code. Do not guess an error code.
@@ -102,11 +155,13 @@ if err != nil {
 ```
 
 Map a missing GORM record to the module error when the module defines one;
-otherwise return `brickserrs.ErrRecordNotFound`. Return unknown technical
-failures unchanged so diagnostics retain their identity. The entry point renders
+otherwise return `brickserrs.ErrRecordNotFound` under the catalog profile.
+For component constructors, use the project-required operation error with the
+original cause. Under the catalog profile, return unknown technical failures
+unchanged so diagnostics retain their identity. The entry point renders
 them safely. Never manufacture `errors.New(...)` for an expected business result.
 
-## Check before finishing
+## Check before finishing: catalog profile
 
 - The module code is unique and follows the local sequence.
 - The internal message is lowercase and the locale messages cover every locale.

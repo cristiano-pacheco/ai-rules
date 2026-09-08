@@ -15,13 +15,26 @@ Follow project paths for these owners. A module mapper may import `model` and
 own output wrapper from mapped application values. Transport mappers may
 import public use-case contracts and canonical DTOs, never GORM models.
 
-Extract reused or substantial transformations. A mapper contains only
-functions. It has no struct, interface, constructor, context, I/O, logger, database
-call, provider client, or Fx registration.
+Keep a trivial, single-use field copy inline at its owning boundary. Extract a
+transformation when it is reused, assembles nested values or collections, parses
+a representation, or has enough logic to need a helper. A single caller does
+not justify keeping that helper as a private service or use-case method.
 
-Put public functions before private helpers. Name a public function for the
-output with `To<Xxx>`. Return exactly one value, plus `error` only when parsing
-or conversion can fail.
+For example, a service's `toRunDTO`, `buildAgentInput`, or `mapSteps` belongs in
+`mapper/` when its body only converts supplied values. Remove the receiver and
+pass the source values explicitly. Inspect the body rather than relying on its
+name. Split I/O from conversion at the caller.
+
+A mapper contains only functions. It has no struct, interface, constructor,
+context, I/O, logger, database call, provider client, or Fx registration.
+
+Apply the project's private-function rule before selecting helper shape. If
+package-level private functions are prohibited, compose meaningful exported
+`To<Xxx>` conversions or keep a small sub-conversion inline; do not introduce a
+mapper struct or move conversion into a service to obtain private methods.
+Otherwise put public functions before private helpers. Name each public function
+for its output with `To<Xxx>`. Return exactly one value, plus `error` only when
+parsing or conversion can fail.
 
 The following example belongs in the HTTP adapter mapper package:
 
@@ -48,7 +61,10 @@ transitions, persistence behavior, and validation policy belong elsewhere.
 ## Recipe: collection and shared sub-mapping
 
 When the same item appears in a collection, add a collection mapper. Let it
-call the single-item public mapper. Keep a shared nested conversion private.
+call the single-item public mapper. The example below uses a private nested
+conversion only in projects that allow package-level private functions. Under a
+no-private-functions rule, use an exported `ToCustomerResponse` conversion and
+update its call instead.
 
 ```go
 func ToOrderListResponse(items []usecase.OrderListItem) []httpdto.OrderResponse {
@@ -74,7 +90,10 @@ private sub-mapping. Do not add comments that merely repeat the conversion name.
 ## Recipe: fallible conversion
 
 Return a typed module error only when the conversion itself can fail, such as a
-parse. Keep the underlying parsing detail out of the application contract.
+parse. Keep the underlying parsing detail out of the application contract while
+preserving the cause according to the project's error pattern. The example uses
+a sentinel-style error; projects requiring constructors use `errs.ErrX(cause)`.
+Any parsing helper also follows the private-function rule above.
 
 ```go
 func ToProductCreateInput(request httpdto.CreateProductRequest) (usecase.ProductCreateInput, error) {
@@ -92,7 +111,8 @@ then map its result.
 
 ## Check before finishing
 
-- The file and its imports follow the representation owner in the table above.
+- The file and its imports follow the representation owner in the table above;
+  no extracted conversion remains disguised as a private service method.
 - Each public mapper begins with `To` and names its output.
 - Every function has one output, with optional `error` as the second result.
 - Collection functions call the single-item mapper.

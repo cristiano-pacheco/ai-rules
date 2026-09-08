@@ -2,8 +2,18 @@
 
 ## Choose the service shape
 
-Use a service for a reusable capability with one responsibility, consumed by
-use cases or other services. A pure capability needs only
+Apply the responsibility classification in `../SKILL.md` first. A service owns
+a reusable capability only after ruling out validation, representation mapping,
+persistence, and protocol adaptation. Reuse and I/O alone do not make a service.
+
+A rule whose result is acceptance or rejection belongs to
+[validators](validators.md), even when it reads a repository or filesystem.
+A conversion that builds a target representation belongs to
+[mappers](mappers.md), even when only one service calls it. A loader can own
+loading while delegating those responsibilities. Classify by behavior, not by
+names such as `Check`, `Build`, `Normalize`, or `Execute`.
+
+A pure capability needs only
 `internal/modules/<module>/service/<name>_service.go`. An I/O capability uses a
 consumer-owned port in `ports/`, an implementation in `service/`, and a `dto/`
 file when a service-specific input or output improves the contract.
@@ -97,9 +107,11 @@ constructor parameter `logger`, never `log` or `l`.
 
 ## Recipe: pure service
 
-Keep deterministic work such as hashing or formatting in a dependency-free
-implementation. Omit context, tracing, logger, configuration, and a port unless
-another module genuinely consumes it as a boundary.
+Keep capabilities such as password hashing or a reusable business calculation
+in a dependency-free implementation. Deterministic DTO assembly, serialization,
+and representation formatting follow the mapper contract instead. Omit context,
+tracing, logger, configuration, and a port unless another module consumes it as
+a boundary.
 
 ```go
 type PasswordHashService struct{}
@@ -113,9 +125,13 @@ func (s *PasswordHashService) Generate(password []byte) ([]byte, error) {
 }
 ```
 
-When the file has a stateful service type, keep helper logic as private methods
-on that type. Do not add standalone package functions beside service methods.
-Put an independent pure transformation in `mapper/` instead.
+Keep service-owned implementation detail as private methods in the owning
+service's file, whether the type is stateful or stateless. Each method must
+implement that service responsibility; a receiver is not evidence of ownership.
+Extract conversion to a boundary-owned mapper and reusable checks to a validator
+instead of creating `service/*_helpers.go`, `service/*_mapping.go`, or a second
+file containing only private methods. Standalone package functions do not belong
+beside service methods.
 
 ## Wire and test
 
@@ -130,13 +146,16 @@ fx.Provide(
 )
 ```
 
-Test the port-visible behavior and errors. For an I/O service, fake or mock the
-consumer-owned dependency, assert it receives the input, and assert the error
-path returns the collaborator error. Do not test `trace.Span` internals.
+Prove service behavior through the project's required test seam. Integration-only
+projects use public use cases and real adapters, without local tests or doubles.
+When isolated tests are permitted, fake or mock the I/O service's consumer-owned
+dependency. Assert that it receives the input and that the service returns its
+errors. Do not test `trace.Span` internals.
 
 ## Check before finishing
 
-- The service has one clear reusable responsibility.
+- The service has one clear reusable responsibility not owned by a validator,
+  mapper, repository, client, or provider; private methods satisfy the same rule.
 - I/O services have port, implementation, assertion, pointer constructor, span,
   context, and logged error return.
 - Pure services omit I/O-only dependencies.
